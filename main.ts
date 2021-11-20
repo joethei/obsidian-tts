@@ -1,137 +1,326 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import {
+    MarkdownView, Menu,
+    Plugin,
+    PluginSettingTab,
+    Setting
+} from 'obsidian';
 
-// Remember to rename these classes and interfaces!
 
-interface MyPluginSettings {
-	mySetting: string;
+interface TTSSettings {
+    voice: string,
+    pitch: number;
+    rate: number;
+    volume: number;
+    speakLinks: boolean;
+    speakFrontmatter: boolean;
+    speakSyntax: boolean;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+const DEFAULT_SETTINGS: TTSSettings = {
+    voice: "",
+    pitch: 1,
+    rate: 1,
+    volume: 1,
+    speakLinks: false,
+    speakFrontmatter: false,
+    speakSyntax: false
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class TTSPlugin extends Plugin {
+    settings: TTSSettings;
+    statusbar: HTMLElement;
 
-	async onload() {
-		await this.loadSettings();
+    async onload() {
+        console.log("loading tts plugin");
+        await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
+        this.addCommand({
+            id: 'start-tts-playback',
+            name: 'Start playback',
+            checkCallback: (checking: boolean) => {
+                const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                if (markdownView) {
+                    if (!checking) {
+                        this.play(markdownView);
+                    }
+                    return true;
+                }
+            }
+        });
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
+        this.registerInterval(window.setInterval(() => {
+            if (!window.speechSynthesis.speaking) {
+                this.statusbar.setText("TTS");
+            }
+        }, 1000 * 60));
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
+        this.addCommand({
+            id: 'cancel-tts-playback',
+            name: 'Stop playback',
+            checkCallback: (checking: boolean) => {
+                if (window.speechSynthesis.speaking) {
+                    if (!checking) {
+                        window.speechSynthesis.cancel();
+                    }
+                    return true;
+                }
+            }
+        });
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
+        this.addCommand({
+            id: 'pause-tts-playback',
+            name: 'pause playback',
+            checkCallback: (checking: boolean) => {
+                if (window.speechSynthesis.speaking) {
+                    if (!checking) {
+                        window.speechSynthesis.pause();
+                    }
+                    return true;
+                }
+            }
+        });
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+        this.addCommand({
+            id: 'resume-tts-playback',
+            name: 'Resume playback',
+            checkCallback: (checking: boolean) => {
+                if (window.speechSynthesis.speaking) {
+                    if (!checking) {
+                        window.speechSynthesis.resume();
+                    }
+                    return true;
+                }
+            }
+        });
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
+        this.addSettingTab(new TTSSettingsTab(this));
+        this.statusbar = this.addStatusBarItem();
+        this.statusbar.setText("TTS");
+        this.statusbar.onClickEvent(async (event) => {
+            const menu = new Menu(this.app);
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-	}
+            const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+            if (markdownView) {
+                menu.addItem((item) => {
+                    item
+                        .setIcon("play-audio-glyph")
+                        .setTitle("Play")
+                        .onClick((async () => {
+                            await this.play(markdownView);
+                        }));
+                });
+            }
 
-	onunload() {
+            if (window.speechSynthesis.speaking) {
+                menu.addItem((item) => {
+                    item
+                        .setIcon("stop-audio-glyph")
+                        .setTitle("Stop")
+                        .onClick(async () => {
+                            window.speechSynthesis.cancel();
+                        });
+                });
 
-	}
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
+                if (window.speechSynthesis.paused) {
+                    menu.addItem((item) => {
+                        item
+                            .setIcon("play-audio-glyph")
+                            .setTitle("Resume")
+                            .onClick(async () => {
+                                window.speechSynthesis.resume();
+                            });
+                    });
+                } else {
+                    menu.addItem((item) => {
+                        item
+                            .setIcon("paused")
+                            .setTitle("Pause")
+                            .onClick(async () => {
+                                window.speechSynthesis.pause();
+                            });
+                    });
+                }
+            }
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
+
+            menu.showAtPosition({x: event.x, y: event.y});
+        });
+    }
+
+    async play(view: MarkdownView) {
+        let content = view.getViewData();
+
+        if (!this.settings.speakFrontmatter)
+            if (content.startsWith("---")) {
+                content = content.replace("---", "");
+                content = content.substring(content.indexOf("---"));
+            }
+
+        if (!this.settings.speakSyntax) {
+            content = content.replace(/#/g, "");
+            content = content.replace("-", "");
+            content = content.replace("_", "");
+        }
+        if (!this.settings.speakLinks) {
+            content = content.replace(/(?:https?|ftp|file):\/\/[\n\S]+/g, '');
+        }
+
+        const msg = new SpeechSynthesisUtterance();
+        msg.text = content;
+        msg.volume = this.settings.volume;
+        msg.rate = this.settings.rate;
+        msg.pitch = this.settings.pitch;
+        msg.voice = window.speechSynthesis.getVoices().filter(voice => voice.name == this.settings.voice)[0];
+        window.speechSynthesis.speak(msg);
+
+        this.statusbar.setText("TTS: " + view.getDisplayText());
+
+    }
+
+    async onunload() {
+        console.log("unloading tts plugin");
+    }
+
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    }
+
+    async saveSettings() {
+        await this.saveData(this.settings);
+    }
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
+class TTSSettingsTab extends PluginSettingTab {
+    plugin: TTSPlugin;
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
+    constructor(plugin: TTSPlugin) {
+        super(plugin.app, plugin);
+        this.plugin = plugin;
+    }
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
+    display(): void {
+        const {containerEl} = this;
 
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+        containerEl.empty();
 
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
+        containerEl.createEl('h2', {text: 'Text to Speech'});
 
-	display(): void {
-		const {containerEl} = this;
+        new Setting(containerEl)
+            .setName("Voice")
+            .addDropdown(async (dropdown) => {
+                const voices = window.speechSynthesis.getVoices();
+                for (const voice of voices) {
+                    dropdown.addOption(voice.name, voice.lang + " " + voice.name);
+                }
+                dropdown
+                    .setValue(this.plugin.settings.voice)
+                    .onChange(async (value) => {
+                        this.plugin.settings.voice = value;
+                        await this.plugin.saveSettings();
+                    });
+            });
 
-		containerEl.empty();
+        new Setting(containerEl)
+            .setName("Volume")
+            .addSlider(async (slider) => {
+                slider
+                    .setValue(this.plugin.settings.volume * 100)
+                    .setDynamicTooltip()
+                    .setLimits(0, 100, 1)
+                    .onChange(async (value: number) => {
+                        this.plugin.settings.volume = value / 100;
+                        await this.plugin.saveSettings();
+                    });
+            }).addExtraButton((button) => {
+            button
+                .setIcon('reset')
+                .setTooltip('restore default')
+                .onClick(async () => {
+                    this.plugin.settings.volume = DEFAULT_SETTINGS.volume;
+                    await this.plugin.saveSettings();
+                    this.display();
+                });
+        });
 
-		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
+        new Setting(containerEl)
+            .setName("Rate")
+            .setDesc("how fast the text will be spoken")
+            .addSlider(async (slider) => {
+                slider
+                    .setValue(this.plugin.settings.rate)
+                    .setDynamicTooltip()
+                    .setLimits(0.1, 10, 0.1)
+                    .onChange(async (value: number) => {
+                        this.plugin.settings.rate = value;
+                        await this.plugin.saveSettings();
+                    });
+            }).addExtraButton((button) => {
+            button
+                .setIcon('reset')
+                .setTooltip('restore default')
+                .onClick(async () => {
+                    this.plugin.settings.rate = DEFAULT_SETTINGS.rate;
+                    await this.plugin.saveSettings();
+                    this.display();
+                });
+        });
 
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					console.log('Secret: ' + value);
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
-	}
+        new Setting(containerEl)
+            .setName("Pitch")
+            .addSlider(async (slider) => {
+                slider
+                    .setValue(this.plugin.settings.pitch)
+                    .setDynamicTooltip()
+                    .setLimits(0, 2, 0.1)
+                    .onChange(async (value: number) => {
+                        this.plugin.settings.pitch = value;
+                        await this.plugin.saveSettings();
+                    });
+            }).addExtraButton((button) => {
+            button
+                .setIcon('reset')
+                .setTooltip('restore default')
+                .onClick(async () => {
+                    this.plugin.settings.pitch = DEFAULT_SETTINGS.pitch;
+                    await this.plugin.saveSettings();
+                    this.display();
+                });
+        });
+
+        containerEl.createEl('h3', {text: 'Speak'});
+
+        new Setting(containerEl)
+            .setName("Frontmatter")
+            .addToggle(async (toggle) => {
+                toggle
+                    .setValue(this.plugin.settings.speakFrontmatter)
+                    .onChange(async (value) => {
+                        this.plugin.settings.speakFrontmatter = value;
+                        await this.plugin.saveSettings();
+                    });
+            });
+
+        new Setting(containerEl)
+            .setName("Links")
+            .addToggle(async (toggle) => {
+                toggle
+                    .setValue(this.plugin.settings.speakLinks)
+                    .onChange(async (value) => {
+                        this.plugin.settings.speakLinks = value;
+                        await this.plugin.saveSettings();
+                    });
+            });
+
+        new Setting(containerEl)
+            .setName("Syntax")
+            .addToggle(async (toggle) => {
+                toggle
+                    .setValue(this.plugin.settings.speakSyntax)
+                    .onChange(async (value) => {
+                        this.plugin.settings.speakSyntax = value;
+                        await this.plugin.saveSettings();
+                    });
+            });
+    }
 }
