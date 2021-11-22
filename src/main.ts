@@ -156,16 +156,58 @@ export default class TTSPlugin extends Plugin {
         });
     }
 
-    async playText(text: string, voice?: string): Promise<void> {
-        const configuredVoice = (voice) ? voice : this.settings.defaultVoice;
+    async sayWithVoice(title: string, text: string, voice: string): Promise<void> {
+		console.log("saying " + voice);
+        let content = text;
+        if (!this.settings.speakSyntax) {
+            content = content.replace(/#/g, "");
+            content = content.replace("-", "");
+            content = content.replace("_", "");
+        }
+        if (!this.settings.speakLinks) {
+            content = content.replace(/(?:https?|ftp|file|data:):\/\/[\n\S]+/g, '');
+        }
+		if(!this.settings.speakCodeblocks) {
+			content = content.replace(/```[\s\S]*?```/g, '');
+		}
+
+        if (this.settings.speakTitle) {
+            content = title + " " + content;
+        }
+
+
+
         const msg = new SpeechSynthesisUtterance();
-        msg.text = text;
+        msg.text = content;
         msg.volume = this.settings.volume;
         msg.rate = this.settings.rate;
         msg.pitch = this.settings.pitch;
-        msg.voice = window.speechSynthesis.getVoices().filter(voice => voice.name === configuredVoice)[0];
+        msg.voice = window.speechSynthesis.getVoices().filter(otherVoice => otherVoice.name === voice)[0];
         window.speechSynthesis.speak(msg);
+        this.statusbar.setText("TTS: playing");
     }
+
+
+    getVoice(languageCode: string) : string {
+        const filtered = this.settings.languageVoices.filter((lang) => lang.language === languageCode);
+        if (filtered.length === 0) return null;
+        return filtered[0].voice;
+    }
+
+    async say(title: string, text: string, languageCode?: string): Promise<void> {
+        let usedVoice = this.settings.defaultVoice;
+        if (languageCode) {
+            const voice = this.getVoice(languageCode);
+            if (voice) {
+                usedVoice = voice;
+            } else {
+				new Notice("TTS: could not find voice for language " + languageCode + ". Using default voice.");
+			}
+        }
+
+        await this.sayWithVoice(title, text, usedVoice);
+    }
+
 
     async play(view: MarkdownView): Promise<void> {
         let content = view.getViewData();
@@ -186,30 +228,8 @@ export default class TTSPlugin extends Plugin {
                 content = content.substring(content.indexOf("---") + 1);
             }
 
-        if (!this.settings.speakSyntax) {
-            content = content.replace(/#/g, "");
-            content = content.replace("-", "");
-            content = content.replace("_", "");
-        }
-        if (!this.settings.speakLinks) {
-            content = content.replace(/(?:https?|ftp|file|data:):\/\/[\n\S]+/g, '');
-        }
-        if (this.settings.speakTitle) {
-            content = view.getDisplayText() + content;
-        }
+        await this.say(view.getDisplayText(), content, language);
 
-        if (language != undefined) {
-            const entry = this.settings.languageVoices.filter(item => item.language == language)[0];
-            if (!entry) {
-                new Notice("TTS: could not find voice for language " + language);
-                return;
-            }
-            await this.playText(content, entry.voice);
-        } else {
-            await this.playText(content);
-        }
-
-        this.statusbar.setText("TTS: playing");
     }
 
     async onunload(): Promise<void> {

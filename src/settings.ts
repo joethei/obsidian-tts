@@ -16,6 +16,7 @@ export interface TTSSettings {
     speakLinks: boolean;
     speakFrontmatter: boolean;
     speakSyntax: boolean;
+	speakCodeblocks: boolean;
     speakTitle: boolean;
     languageVoices: LanguageVoiceMap[];
 }
@@ -29,6 +30,7 @@ export const DEFAULT_SETTINGS: TTSSettings = {
     speakFrontmatter: false,
     speakSyntax: false,
     speakTitle: true,
+	speakCodeblocks: false,
     languageVoices: []
 }
 
@@ -52,7 +54,7 @@ export class TTSSettingsTab extends PluginSettingTab {
             .addDropdown(async (dropdown) => {
                 const voices = window.speechSynthesis.getVoices();
                 for (const voice of voices) {
-                    dropdown.addOption(voice.name, voice.lang + " " + voice.name);
+                    dropdown.addOption(voice.name, voice.name);
                 }
                 dropdown
                     .setValue(this.plugin.settings.defaultVoice)
@@ -68,7 +70,7 @@ export class TTSSettingsTab extends PluginSettingTab {
                     const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian");
                     await input.openAndGetValue((async value => {
                         if (value.getValue().length === 0) return;
-                        await this.plugin.playText(value.getValue());
+                        await this.plugin.say('', value.getValue());
                     }));
 
 
@@ -82,7 +84,7 @@ export class TTSSettingsTab extends PluginSettingTab {
             .setDesc("Add a new language specific voice")
             .addButton((button: ButtonComponent): ButtonComponent => {
                 return button
-                    .setTooltip("add new Feed")
+                    .setTooltip("add new language specific voice")
                     .setIcon("create-new")
                     .onClick(async () => {
                         const modal = new LanguageVoiceModal(this.plugin);
@@ -107,9 +109,12 @@ export class TTSSettingsTab extends PluginSettingTab {
 
         const voicesDiv = additionalContainer.createDiv("voices");
         for (const languageVoice of this.plugin.settings.languageVoices) {
+			console.log(languageVoice);
 
-            const setting = new Setting(voicesDiv);
-            setting.setName(languageVoice.language);
+			//@ts-ignore
+			const displayNames = new Intl.DisplayNames([languageVoice.language], {type: 'language', fallback: 'none'});
+			const setting = new Setting(voicesDiv);
+			setting.setName(displayNames.of(languageVoice.language) + " -  " + languageVoice.language);
             setting.setDesc(languageVoice.voice);
 
             setting
@@ -243,6 +248,17 @@ export class TTSSettingsTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     });
             });
+
+		new Setting(containerEl)
+			.setName("Codeblocks")
+			.addToggle(async (toggle) => {
+				toggle
+					.setValue(this.plugin.settings.speakCodeblocks)
+					.onChange(async (value) => {
+						this.plugin.settings.speakCodeblocks = value;
+						await this.plugin.saveSettings();
+					});
+			});
 
         new Setting(containerEl)
             .setName("Syntax")
