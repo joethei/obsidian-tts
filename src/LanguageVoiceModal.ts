@@ -72,7 +72,7 @@ export class LanguageVoiceModal extends Modal {
                     const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian");
                     await input.openAndGetValue((async value => {
                         if (value.getValue().length === 0) return;
-                        await this.plugin.sayWithVoice('', value.getValue(), this.voice);
+                        await this.plugin.ttsService.sayWithVoice('', value.getValue(), this.voice);
                     }));
 
 

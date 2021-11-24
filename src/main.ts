@@ -1,15 +1,19 @@
 import {
-    MarkdownView, Menu, Notice, parseYaml, Platform,
+    MarkdownView, Menu, Notice, Platform,
     Plugin
 } from 'obsidian';
 import {DEFAULT_SETTINGS, TTSSettings, TTSSettingsTab} from "./settings";
+import {TTSService} from "./TTSService";
 
 
 export default class TTSPlugin extends Plugin {
+	ttsService: TTSService;
     settings: TTSSettings;
     statusbar: HTMLElement;
 
     async onload(): Promise<void> {
+		this.ttsService = new TTSService(this);
+
         console.log("loading tts plugin");
 
         //https://bugs.chromium.org/p/chromium/issues/detail?id=487255
@@ -25,32 +29,20 @@ export default class TTSPlugin extends Plugin {
             name: 'Start playback',
             checkCallback: (checking: boolean) => {
                 const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                if (markdownView) {
-                    if (!checking) {
-                        this.play(markdownView);
-                    }
-                    return true;
-                }
+				if(checking)
+					return markdownView !== undefined;
+				this.ttsService.play(markdownView);
+
             }
         });
-
-        //clear statusbar text if not speaking
-        this.registerInterval(window.setInterval(() => {
-            if (!window.speechSynthesis.speaking) {
-                this.statusbar.setText("TTS");
-            }
-        }, 1000 * 10));
 
         this.addCommand({
             id: 'cancel-tts-playback',
             name: 'Stop playback',
             checkCallback: (checking: boolean) => {
-                if (window.speechSynthesis.speaking) {
-                    if (!checking) {
-                        window.speechSynthesis.cancel();
-                    }
-                    return true;
-                }
+				if(checking)
+					return this.ttsService.isSpeaking();
+				this.ttsService.stop();
             }
         });
 
@@ -58,12 +50,9 @@ export default class TTSPlugin extends Plugin {
             id: 'pause-tts-playback',
             name: 'pause playback',
             checkCallback: (checking: boolean) => {
-                if (window.speechSynthesis.speaking) {
-                    if (!checking) {
-                        window.speechSynthesis.pause();
-                    }
-                    return true;
-                }
+				if(checking)
+					return this.ttsService.isSpeaking();
+				this.ttsService.pause();
             }
         });
 
@@ -71,21 +60,39 @@ export default class TTSPlugin extends Plugin {
             id: 'resume-tts-playback',
             name: 'Resume playback',
             checkCallback: (checking: boolean) => {
-                if (window.speechSynthesis.speaking) {
-                    if (!checking) {
-                        window.speechSynthesis.resume();
-                    }
-                    return true;
-                }
+				if(checking)
+					return this.ttsService.isPaused();
+				this.ttsService.resume();
             }
         });
 
-        this.addRibbonIcon("audio-file", "Text to Speech", async () => {
-            const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-            if (markdownView)
-                await this.play(markdownView);
-            else new Notice("No file active");
+		//clear statusbar text if not speaking
+		this.registerInterval(window.setInterval(() => {
+			if (!this.ttsService.isSpeaking()) {
+				this.statusbar.setText("TTS");
+			}
+		}, 1000 * 10));
+
+        this.addRibbonIcon("audio-file", "Text to Speech", async (event) => {
+           await this.createMenu(event);
         });
+
+		this.registerEvent(this.app.workspace.on('editor-menu', ((menu, editor, markdownView) => {
+			menu.addItem((item) => {
+				item
+					.setTitle("Say selected text")
+					.setIcon("audio-file")
+					.onClick(() => {
+					this.ttsService.say("", editor.getSelection(), this.ttsService.getLanguageFromFrontmatter(markdownView));
+				});
+			});
+		})));
+
+		this.registerEvent(this.app.workspace.on('layout-change', (() => {
+			if(this.settings.stopPlaybackWhenNoteClosed) {
+				this.ttsService.stop();
+			}
+		})));
 
         this.addSettingTab(new TTSSettingsTab(this));
         this.statusbar = this.addStatusBarItem();
@@ -94,143 +101,71 @@ export default class TTSPlugin extends Plugin {
         this.statusbar.setAttribute("aria-label", "Text to Speech");
         this.statusbar.setAttribute("aria-label-position", "top");
         this.statusbar.onClickEvent(async (event) => {
-            const menu = new Menu(this.app);
-
-            const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-            if (markdownView) {
-                if (window.speechSynthesis.speaking) {
-                    menu.addItem((item) => {
-                        item
-                            .setIcon("play-audio-glyph")
-                            .setTitle("Add to playback queue")
-                            .onClick((async () => {
-                                await this.play(markdownView);
-                            }));
-                    });
-                } else {
-                    menu.addItem((item) => {
-                        item
-                            .setIcon("play-audio-glyph")
-                            .setTitle("Play")
-                            .onClick((async () => {
-                                await this.play(markdownView);
-                            }));
-                    });
-                }
-            }
-
-            if (window.speechSynthesis.speaking) {
-                menu.addItem((item) => {
-                    item
-                        .setIcon("stop-audio-glyph")
-                        .setTitle("Stop")
-                        .onClick(async () => {
-                            window.speechSynthesis.cancel();
-                        });
-                });
-
-
-                if (window.speechSynthesis.paused) {
-                    menu.addItem((item) => {
-                        item
-                            .setIcon("play-audio-glyph")
-                            .setTitle("Resume")
-                            .onClick(async () => {
-                                window.speechSynthesis.resume();
-                            });
-                    });
-                } else {
-                    menu.addItem((item) => {
-                        item
-                            .setIcon("paused")
-                            .setTitle("Pause")
-                            .onClick(async () => {
-                                window.speechSynthesis.pause();
-                            });
-                    });
-                }
-            }
-
-
-            menu.showAtPosition({x: event.x, y: event.y});
+            await this.createMenu(event);
         });
     }
 
-    async sayWithVoice(title: string, text: string, voice: string): Promise<void> {
-		console.log("saying " + voice);
-        let content = text;
-        if (!this.settings.speakSyntax) {
-            content = content.replace(/#/g, "");
-            content = content.replace("-", "");
-            content = content.replace("_", "");
-        }
-        if (!this.settings.speakLinks) {
-            content = content.replace(/(?:https?|ftp|file|data:):\/\/[\n\S]+/g, '');
-        }
-		if(!this.settings.speakCodeblocks) {
-			content = content.replace(/```[\s\S]*?```/g, '');
+	async createMenu(event: MouseEvent) : Promise<void> {
+		const menu = new Menu(this.app);
+
+		const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (markdownView) {
+			if (window.speechSynthesis.speaking) {
+				menu.addItem((item) => {
+					item
+						.setIcon("play-audio-glyph")
+						.setTitle("Add to playback queue")
+						.onClick((async () => {
+							await this.ttsService.play(markdownView);
+						}));
+				});
+			} else {
+				menu.addItem((item) => {
+					item
+						.setIcon("play-audio-glyph")
+						.setTitle("Play")
+						.onClick((async () => {
+							await this.ttsService.play(markdownView);
+						}));
+				});
+			}
 		}
 
-        if (this.settings.speakTitle) {
-            content = title + " " + content;
-        }
+		if (window.speechSynthesis.speaking) {
+			menu.addItem((item) => {
+				item
+					.setIcon("stop-audio-glyph")
+					.setTitle("Stop")
+					.onClick(async () => {
+						this.ttsService.stop();
+					});
+			});
 
 
-
-        const msg = new SpeechSynthesisUtterance();
-        msg.text = content;
-        msg.volume = this.settings.volume;
-        msg.rate = this.settings.rate;
-        msg.pitch = this.settings.pitch;
-        msg.voice = window.speechSynthesis.getVoices().filter(otherVoice => otherVoice.name === voice)[0];
-        window.speechSynthesis.speak(msg);
-        this.statusbar.setText("TTS: playing");
-    }
-
-
-    getVoice(languageCode: string) : string {
-        const filtered = this.settings.languageVoices.filter((lang) => lang.language === languageCode);
-        if (filtered.length === 0) return null;
-        return filtered[0].voice;
-    }
-
-    async say(title: string, text: string, languageCode?: string): Promise<void> {
-        let usedVoice = this.settings.defaultVoice;
-        if (languageCode) {
-            const voice = this.getVoice(languageCode);
-            if (voice) {
-                usedVoice = voice;
-            } else {
-				new Notice("TTS: could not find voice for language " + languageCode + ". Using default voice.");
+			if (window.speechSynthesis.paused) {
+				menu.addItem((item) => {
+					item
+						.setIcon("play-audio-glyph")
+						.setTitle("Resume")
+						.onClick(async () => {
+							this.ttsService.resume();
+						});
+				});
+			} else {
+				menu.addItem((item) => {
+					item
+						.setIcon("paused")
+						.setTitle("Pause")
+						.onClick(async () => {
+							this.ttsService.pause();
+						});
+				});
 			}
-        }
-
-        await this.sayWithVoice(title, text, usedVoice);
-    }
+		}
 
 
-    async play(view: MarkdownView): Promise<void> {
-        let content = view.getViewData();
-        let language: string;
-
-        //check if any language is defined in frontmatter
-        const frontmatter = content.match(/---[\s\S]*?---/);
-        if (frontmatter && frontmatter[0]) {
-            const parsedFrontmatter = parseYaml(frontmatter[0].replace(/---/g, ''));
-            if (parsedFrontmatter['lang']) {
-                language = parsedFrontmatter['lang'];
-            }
-        }
-
-        if (!this.settings.speakFrontmatter)
-            if (content.startsWith("---")) {
-                content = content.replace("---", "");
-                content = content.substring(content.indexOf("---") + 1);
-            }
-
-        await this.say(view.getDisplayText(), content, language);
-
-    }
+		menu.showAtPosition({x: event.x, y: event.y});
+	}
 
     async onunload(): Promise<void> {
         console.log("unloading tts plugin");

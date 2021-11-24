@@ -19,6 +19,7 @@ export interface TTSSettings {
 	speakCodeblocks: boolean;
     speakTitle: boolean;
     languageVoices: LanguageVoiceMap[];
+	stopPlaybackWhenNoteChanges: boolean;
 }
 
 export const DEFAULT_SETTINGS: TTSSettings = {
@@ -31,7 +32,8 @@ export const DEFAULT_SETTINGS: TTSSettings = {
     speakSyntax: false,
     speakTitle: true,
 	speakCodeblocks: false,
-    languageVoices: []
+    languageVoices: [],
+	stopPlaybackWhenNoteChanges: false,
 }
 
 export class TTSSettingsTab extends PluginSettingTab {
@@ -70,7 +72,7 @@ export class TTSSettingsTab extends PluginSettingTab {
                     const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian");
                     await input.openAndGetValue((async value => {
                         if (value.getValue().length === 0) return;
-                        await this.plugin.say('', value.getValue());
+                        await this.plugin.ttsService.say('', value.getValue());
                     }));
 
 
@@ -270,5 +272,17 @@ export class TTSSettingsTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     });
             });
+
+		containerEl.createEl("h2", {text: "Misc"});
+		new Setting(containerEl)
+			.setName("Stop playback when a note is closed/new note is opened")
+			.addToggle(async (toggle) => {
+				toggle
+					.setValue(this.plugin.settings.stopPlaybackWhenNoteChanges)
+					.onChange(async (value) => {
+						this.plugin.settings.stopPlaybackWhenNoteChanges = value;
+						await this.plugin.saveSettings();
+					});
+			});
     }
 }
