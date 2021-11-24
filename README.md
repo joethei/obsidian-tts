@@ -26,6 +26,12 @@ to add a new language reference the documentation accordingly:
 - [iOS](https://support.apple.com/guide/iphone/change-the-language-and-region-iphce20717a3/ios)
 <!--- [Android](https://support.google.com/accessibility/android/answer/6006983?hl=en)-->
 
+
+## Installing the plugin
+<!--- `Settings > Third-party plugins > Community Plugins > Browse` and search for `Text to Speech`-->
+- Using the [Beta Reviewers Auto-update Tester](https://github.com/TfTHacker/obsidian42-brat) plugin with the repo path: `joethei/obsidian-tss`
+- Copy over `main.js`, `styles.css`, `manifest.json` from the releases to your vault `VaultFolder/.obsidian/plugins/obsidian-tts/`.
+
 ## API
 You can use this plugins API to add Text to Speech capabilities to your plugin.
 
@@ -40,3 +46,4 @@ Parameters:
 - title: Title of your text, will only be spoken if the the user has the setting enabled
 - text
 - language(optional): language code according to the [ISO 639-1](https://www.loc.gov/standards/iso639-2/php/English_list.php), if there is no voice configured for that language, the plugin will use the default voice.
+
