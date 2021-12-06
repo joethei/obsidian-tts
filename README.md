@@ -44,13 +44,12 @@ You can use this plugins API to add Text to Speech capabilities to your plugin.
 //@ts-ignore
 if (this.app.plugins.plugins["obsidian-tts"]) {//check if the plugin is loaded
 	//@ts-ignore
-	const tts = this.app.plugins.plugins["obsidian-tts"];
+	const tts = this.app.plugins.plugins["obsidian-tts"].ttsService;
 	await tts.say(title, text, language);//language is optional, use a ISO 639-1 code
 	tts.pause();
 	tts.resume();
 	tts.stop();
 	tts.isSpeaking();
-    tts.isPaused();
-
+	tts.isPaused();
 }
 ```

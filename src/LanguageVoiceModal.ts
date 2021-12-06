@@ -34,7 +34,7 @@ export class LanguageVoiceModal extends Modal {
             .setName("Language")
             .addDropdown(async (dropdown) => {
 
-                for (let languageCodeKey in languages.getAlpha2Codes()) {
+                for (const languageCodeKey in languages.getAlpha2Codes()) {
                     //@ts-ignore
                     const displayNames = new Intl.DisplayNames([languageCodeKey], {type: 'language', fallback: 'none'});
                     if(displayNames) {

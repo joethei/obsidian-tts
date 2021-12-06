@@ -94,21 +94,14 @@ export class TTSService {
 
 	async play(view: MarkdownView): Promise<void> {
 		let content = view.getViewData();
-		let language: string;
+		let language = this.getLanguageFromFrontmatter(view);
 
-		//check if any language is defined in frontmatter
-		const frontmatter = content.match(/---[\s\S]*?---/);
-		if (frontmatter && frontmatter[0]) {
-			const parsedFrontmatter = parseYaml(frontmatter[0].replace(/---/g, ''));
-			if (parsedFrontmatter['lang']) {
-				language = parsedFrontmatter['lang'];
-			}
-		}
 		if (!this.plugin.settings.speakFrontmatter)
 			if (content.startsWith("---")) {
 				content = content.replace("---", "");
 				content = content.substring(content.indexOf("---") + 1);
 			}
+
 		await this.say(view.getDisplayText(), content, language);
 
 	}
@@ -116,6 +109,8 @@ export class TTSService {
 	getLanguageFromFrontmatter(view: MarkdownView) : string {
 		let language = "";
 		//check if any language is defined in frontmatter
+		if(!view.getViewData().startsWith("---")) return language;
+
 		const frontmatter = view.getViewData().match(/---[\s\S]*?---/);
 		if (frontmatter && frontmatter[0]) {
 			const parsedFrontmatter = parseYaml(frontmatter[0].replace(/---/g, ''));

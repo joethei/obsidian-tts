@@ -89,7 +89,7 @@ export default class TTSPlugin extends Plugin {
 		})));
 
 		this.registerEvent(this.app.workspace.on('layout-change', (() => {
-			if(this.settings.stopPlaybackWhenNoteClosed) {
+			if(this.settings.stopPlaybackWhenNoteChanges) {
 				this.ttsService.stop();
 			}
 		})));
