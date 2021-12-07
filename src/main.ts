@@ -27,13 +27,8 @@ export default class TTSPlugin extends Plugin {
 		this.addCommand({
 			id: 'start-tts-playback',
 			name: 'Start playback',
-			checkCallback: (checking: boolean) => {
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (!markdownView) return;
-				if (checking)
-					return !!(markdownView);
-				this.ttsService.play(markdownView);
-
+			editorCallback: (editor, view) => {
+				this.ttsService.play(view);
 			}
 		});
 
@@ -41,9 +36,10 @@ export default class TTSPlugin extends Plugin {
 			id: 'cancel-tts-playback',
 			name: 'Stop playback',
 			checkCallback: (checking: boolean) => {
-				if (checking)
-					return this.ttsService.isSpeaking();
-				this.ttsService.stop();
+				if (!checking)
+					this.ttsService.stop();
+				return this.ttsService.isSpeaking();
+
 			}
 		});
 
@@ -51,9 +47,9 @@ export default class TTSPlugin extends Plugin {
 			id: 'pause-tts-playback',
 			name: 'pause playback',
 			checkCallback: (checking: boolean) => {
-				if (checking)
-					return this.ttsService.isSpeaking();
-				this.ttsService.pause();
+				if (!checking)
+					this.ttsService.pause();
+				return this.ttsService.isSpeaking();
 			}
 		});
 
@@ -61,9 +57,9 @@ export default class TTSPlugin extends Plugin {
 			id: 'resume-tts-playback',
 			name: 'Resume playback',
 			checkCallback: (checking: boolean) => {
-				if (checking)
-					return this.ttsService.isPaused();
-				this.ttsService.resume();
+				if (!checking)
+					this.ttsService.resume();
+				return this.ttsService.isPaused();
 			}
 		});
 
