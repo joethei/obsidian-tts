@@ -1,6 +1,6 @@
 import {
-    MarkdownView, Menu, Notice, Platform,
-    Plugin
+	MarkdownView, Menu, Notice, Platform,
+	Plugin
 } from 'obsidian';
 import {DEFAULT_SETTINGS, TTSSettings, TTSSettingsTab} from "./settings";
 import {TTSService} from "./TTSService";
@@ -8,63 +8,64 @@ import {TTSService} from "./TTSService";
 
 export default class TTSPlugin extends Plugin {
 	ttsService: TTSService;
-    settings: TTSSettings;
-    statusbar: HTMLElement;
+	settings: TTSSettings;
+	statusbar: HTMLElement;
 
-    async onload(): Promise<void> {
+	async onload(): Promise<void> {
 		this.ttsService = new TTSService(this);
 
-        console.log("loading tts plugin");
+		console.log("loading tts plugin");
 
-        //https://bugs.chromium.org/p/chromium/issues/detail?id=487255
-        if (Platform.isAndroidApp) {
-            new Notice("TTS: due to a bug in android this plugin does not work on this platform");
-            this.unload();
-        }
+		//https://bugs.chromium.org/p/chromium/issues/detail?id=487255
+		if (Platform.isAndroidApp) {
+			new Notice("TTS: due to a bug in android this plugin does not work on this platform");
+			throw Error("TTS: due to a bug in android this plugin does not work on this platform");
+		}
 
-        await this.loadSettings();
+		await this.loadSettings();
 
-        this.addCommand({
-            id: 'start-tts-playback',
-            name: 'Start playback',
-            checkCallback: (checking: boolean) => {
-                const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if(checking)
-					return markdownView !== undefined;
+		this.addCommand({
+			id: 'start-tts-playback',
+			name: 'Start playback',
+			checkCallback: (checking: boolean) => {
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (!markdownView) return;
+				if (checking)
+					return !!(markdownView);
 				this.ttsService.play(markdownView);
 
-            }
-        });
+			}
+		});
 
-        this.addCommand({
-            id: 'cancel-tts-playback',
-            name: 'Stop playback',
-            checkCallback: (checking: boolean) => {
-				if(checking)
+		this.addCommand({
+			id: 'cancel-tts-playback',
+			name: 'Stop playback',
+			checkCallback: (checking: boolean) => {
+				if (checking)
 					return this.ttsService.isSpeaking();
 				this.ttsService.stop();
-            }
-        });
+			}
+		});
 
-        this.addCommand({
-            id: 'pause-tts-playback',
-            name: 'pause playback',
-            checkCallback: (checking: boolean) => {
-				if(checking)
+		this.addCommand({
+			id: 'pause-tts-playback',
+			name: 'pause playback',
+			checkCallback: (checking: boolean) => {
+				if (checking)
 					return this.ttsService.isSpeaking();
 				this.ttsService.pause();
-            }
-        });
+			}
+		});
 
-        this.addCommand({
-            id: 'resume-tts-playback',
-            name: 'Resume playback',
-            checkCallback: (checking: boolean) => {
-				if(checking)
+		this.addCommand({
+			id: 'resume-tts-playback',
+			name: 'Resume playback',
+			checkCallback: (checking: boolean) => {
+				if (checking)
 					return this.ttsService.isPaused();
 				this.ttsService.resume();
-            }
-        });
+			}
+		});
 
 		//clear statusbar text if not speaking
 		this.registerInterval(window.setInterval(() => {
@@ -73,9 +74,9 @@ export default class TTSPlugin extends Plugin {
 			}
 		}, 1000 * 10));
 
-        this.addRibbonIcon("audio-file", "Text to Speech", async (event) => {
-           await this.createMenu(event);
-        });
+		this.addRibbonIcon("audio-file", "Text to Speech", async (event) => {
+			await this.createMenu(event);
+		});
 
 		this.registerEvent(this.app.workspace.on('editor-menu', ((menu, editor, markdownView) => {
 			menu.addItem((item) => {
@@ -83,29 +84,29 @@ export default class TTSPlugin extends Plugin {
 					.setTitle("Say selected text")
 					.setIcon("audio-file")
 					.onClick(() => {
-					this.ttsService.say("", editor.getSelection(), this.ttsService.getLanguageFromFrontmatter(markdownView));
-				});
+						this.ttsService.say("", editor.getSelection(), this.ttsService.getLanguageFromFrontmatter(markdownView));
+					});
 			});
 		})));
 
 		this.registerEvent(this.app.workspace.on('layout-change', (() => {
-			if(this.settings.stopPlaybackWhenNoteChanges) {
+			if (this.settings.stopPlaybackWhenNoteChanges) {
 				this.ttsService.stop();
 			}
 		})));
 
-        this.addSettingTab(new TTSSettingsTab(this));
-        this.statusbar = this.addStatusBarItem();
-        this.statusbar.setText("TTS");
-        this.statusbar.classList.add("mod-clickable");
-        this.statusbar.setAttribute("aria-label", "Text to Speech");
-        this.statusbar.setAttribute("aria-label-position", "top");
-        this.statusbar.onClickEvent(async (event) => {
-            await this.createMenu(event);
-        });
-    }
+		this.addSettingTab(new TTSSettingsTab(this));
+		this.statusbar = this.addStatusBarItem();
+		this.statusbar.setText("TTS");
+		this.statusbar.classList.add("mod-clickable");
+		this.statusbar.setAttribute("aria-label", "Text to Speech");
+		this.statusbar.setAttribute("aria-label-position", "top");
+		this.statusbar.onClickEvent(async (event) => {
+			await this.createMenu(event);
+		});
+	}
 
-	async createMenu(event: MouseEvent) : Promise<void> {
+	async createMenu(event: MouseEvent): Promise<void> {
 		const menu = new Menu(this.app);
 
 		const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -167,15 +168,15 @@ export default class TTSPlugin extends Plugin {
 		menu.showAtPosition({x: event.x, y: event.y});
 	}
 
-    async onunload(): Promise<void> {
-        console.log("unloading tts plugin");
-    }
+	async onunload(): Promise<void> {
+		console.log("unloading tts plugin");
+	}
 
-    async loadSettings(): Promise<void> {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-    }
+	async loadSettings(): Promise<void> {
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+	}
 
-    async saveSettings(): Promise<void> {
-        await this.saveData(this.settings);
-    }
+	async saveSettings(): Promise<void> {
+		await this.saveData(this.settings);
+	}
 }

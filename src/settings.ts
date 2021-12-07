@@ -111,7 +111,6 @@ export class TTSSettingsTab extends PluginSettingTab {
 
         const voicesDiv = additionalContainer.createDiv("voices");
         for (const languageVoice of this.plugin.settings.languageVoices) {
-			console.log(languageVoice);
 
 			//@ts-ignore
 			const displayNames = new Intl.DisplayNames([languageVoice.language], {type: 'language', fallback: 'none'});
