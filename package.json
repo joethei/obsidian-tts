@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-tts",
-	"version": "0.3.3",
+	"version": "0.3.4",
 	"description": "Text to speech for Obsidian. Hear your notes.",
 	"main": "main.js",
 	"scripts": {
