@@ -27,7 +27,7 @@ export default class TTSPlugin extends Plugin {
 		this.addCommand({
 			id: 'start-tts-playback',
 			name: 'Start playback',
-			editorCallback: (editor, view) => {
+			editorCallback: (_, view) => {
 				this.ttsService.play(view);
 			}
 		});

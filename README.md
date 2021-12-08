@@ -7,7 +7,11 @@ Plugin for [Obsidian](https://obsidian.md)
 ![GitHub](https://img.shields.io/github/license/joethei/obsidian-tts)
 [![libera manifesto](https://img.shields.io/badge/libera-manifesto-lightgrey.svg)](https://liberamanifesto.com)
 ---
-**This plugin is currently in beta**
+Features:
+- Start playback for note from statusbar and ribbon
+- Only speaking selected text in edit mode:
+![Selection Demo](https://i.joethei.space/Obsidian_rjttPsYPwj.png)
+- usable with other plugins (currently [RSS Reader](https://github.com/joethei/obsidian-rss))
 
 You can create language specific voices, which will be used when you have a note with
 ```lang: {languageCode}```
@@ -20,7 +24,6 @@ to [this bug in the Webview](https://bugs.chromium.org/p/chromium/issues/detail?
 ## Adding languages
 
 This plugin uses the native API of your Operating System, to add a new language reference the documentation accordingly:
-
 - [Windows 10](https://support.microsoft.com/en-us/topic/how-to-download-text-to-speech-languages-for-windows-10-d5a6b612-b3ae-423f-afa5-4f6caf1ec5d3)
 - [MacOS](https://support.apple.com/guide/mac-help/change-the-system-language-mh26684/mac)
 - [iOS](https://support.apple.com/guide/iphone/change-the-language-and-region-iphce20717a3/ios)
@@ -29,8 +32,7 @@ This plugin uses the native API of your Operating System, to add a new language 
 
 ## Installing the plugin
 
-<!--- `Settings > Third-party plugins > Community Plugins > Browse` and search for `Text to Speech`-->
-
+- `Settings > Third-party plugins > Community Plugins > Browse` and search for `Text to Speech`
 - Using the [Beta Reviewers Auto-update Tester](https://github.com/TfTHacker/obsidian42-brat) plugin with the repo
   path: `joethei/obsidian-tts`
 - Copy over `main.js`, `styles.css`, `manifest.json` from the releases to your

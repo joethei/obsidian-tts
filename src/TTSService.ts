@@ -10,25 +10,25 @@ export class TTSService {
 	}
 
 	stop(): void {
-		if(!this.isSpeaking()) return;
+		if (!this.isSpeaking()) return;
 		window.speechSynthesis.cancel();
 	}
 
 	pause(): void {
-		if(!this.isSpeaking()) return;
+		if (!this.isSpeaking()) return;
 		window.speechSynthesis.pause();
 	}
 
 	resume(): void {
-		if(!this.isSpeaking()) return;
+		if (!this.isSpeaking()) return;
 		window.speechSynthesis.resume();
 	}
 
-	isSpeaking() : boolean {
+	isSpeaking(): boolean {
 		return window.speechSynthesis.speaking;
 	}
 
-	isPaused() : boolean {
+	isPaused(): boolean {
 		return window.speechSynthesis.paused;
 	}
 
@@ -49,7 +49,12 @@ export class TTSService {
 		}
 
 		if (this.plugin.settings.speakTitle) {
-			content = title + " " + content;
+			content = title + " ! ! " + content;
+		}
+
+		if (!this.plugin.settings.speakEmoji) {
+			//regex from https://ihateregex.io/expr/emoji/
+			content = content.replace(/(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g, '');
 		}
 
 		//add pauses, taken from https://stackoverflow.com/a/50944593/5589264
@@ -94,7 +99,7 @@ export class TTSService {
 
 	async play(view: MarkdownView): Promise<void> {
 		let content = view.getViewData();
-		let language = this.getLanguageFromFrontmatter(view);
+		const language = this.getLanguageFromFrontmatter(view);
 
 		if (!this.plugin.settings.speakFrontmatter)
 			if (content.startsWith("---")) {
@@ -106,10 +111,10 @@ export class TTSService {
 
 	}
 
-	getLanguageFromFrontmatter(view: MarkdownView) : string {
+	getLanguageFromFrontmatter(view: MarkdownView): string {
 		let language = "";
 		//check if any language is defined in frontmatter
-		if(!view.getViewData().startsWith("---")) return language;
+		if (!view.getViewData().startsWith("---")) return language;
 
 		const frontmatter = view.getViewData().match(/---[\s\S]*?---/);
 		if (frontmatter && frontmatter[0]) {
