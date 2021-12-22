@@ -129,6 +129,11 @@ export class TTSSettingsTab extends PluginSettingTab {
 
                             modal.onClose = async () => {
                                 if (modal.saved) {
+									const setting = this.plugin.settings.languageVoices.filter(value => value.language !== modal.language);
+									setting.push({language: modal.language, voice: modal.voice});
+									this.plugin.settings.languageVoices = setting;
+									await this.plugin.saveSettings();
+
                                     this.display();
                                 }
                             };
@@ -140,6 +145,8 @@ export class TTSSettingsTab extends PluginSettingTab {
                     b.setIcon("trash")
                         .setTooltip("Delete")
                         .onClick(async () => {
+							this.plugin.settings.languageVoices = this.plugin.settings.languageVoices.filter(value => value.language !== languageVoice.language);
+							await this.plugin.saveSettings();
 
                             this.display();
                         });
