@@ -19,7 +19,7 @@ export default class TTSPlugin extends Plugin {
 		//https://bugs.chromium.org/p/chromium/issues/detail?id=487255
 		if (Platform.isAndroidApp) {
 			new Notice("TTS: due to a bug in android this plugin does not work on this platform");
-			throw Error("TTS: due to a bug in android this plugin does not work on this platform");
+			this.unload();
 		}
 
 		await this.loadSettings();
@@ -31,7 +31,7 @@ export default class TTSPlugin extends Plugin {
 				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if(!checking && markdownView)
 					this.ttsService.play(markdownView);
-				return markdownView ? true : false;
+				return !!markdownView;
 			}
 		});
 
