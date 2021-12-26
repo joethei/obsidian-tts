@@ -50,7 +50,7 @@ export class TTSService {
 			content = content.replace(/```[\s\S]*?```/g, '');
 		}
 
-		if (this.plugin.settings.speakTitle) {
+		if (this.plugin.settings.speakTitle && title?.length > 0) {
 			content = title + " ! ! " + content;
 		}
 
@@ -100,7 +100,9 @@ export class TTSService {
 
 
 	async play(view: MarkdownView): Promise<void> {
-		let content = view.getViewData();
+		let selectedText = view.editor.getSelection().length > 0 ? view.editor.getSelection() : window.getSelection().toString();
+		let content = selectedText.length > 0 ? selectedText : view.getViewData();
+		let title = selectedText.length > 0 ? null : view.getDisplayText();
 		const language = this.getLanguageFromFrontmatter(view);
 
 		if (!this.plugin.settings.speakFrontmatter)
@@ -109,7 +111,7 @@ export class TTSService {
 				content = content.substring(content.indexOf("---") + 1);
 			}
 
-		await this.say(view.getDisplayText(), content, language);
+		await this.say(title, content, language);
 
 	}
 
