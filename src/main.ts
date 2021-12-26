@@ -27,8 +27,11 @@ export default class TTSPlugin extends Plugin {
 		this.addCommand({
 			id: 'start-tts-playback',
 			name: 'Start playback',
-			editorCallback: (_, view) => {
-				this.ttsService.play(view);
+			checkCallback: (checking: boolean) => {
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if(!checking && markdownView)
+					this.ttsService.play(markdownView);
+				return markdownView ? true : false;
 			}
 		});
 
@@ -77,10 +80,10 @@ export default class TTSPlugin extends Plugin {
 		this.registerEvent(this.app.workspace.on('editor-menu', ((menu, editor, markdownView) => {
 			menu.addItem((item) => {
 				item
-					.setTitle("Say selected text")
+					.setTitle(window.getSelection().toString().length > 0 ? "Read selected text" : "Read the note")
 					.setIcon("audio-file")
 					.onClick(() => {
-						this.ttsService.say("", editor.getSelection(), this.ttsService.getLanguageFromFrontmatter(markdownView));
+						this.ttsService.play(markdownView);
 					});
 			});
 		})));
@@ -117,14 +120,8 @@ export default class TTSPlugin extends Plugin {
 						}));
 				});
 			} else {
-				menu.addItem((item) => {
-					item
-						.setIcon("play-audio-glyph")
-						.setTitle("Play")
-						.onClick((async () => {
-							await this.ttsService.play(markdownView);
-						}));
-				});
+				await this.ttsService.play(markdownView);
+				return;
 			}
 		}
 
