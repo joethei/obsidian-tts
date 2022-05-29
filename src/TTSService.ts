@@ -1,6 +1,7 @@
 import {MarkdownView, Notice, parseYaml} from "obsidian";
 import {LanguageVoiceMap} from "./settings";
 import TTSPlugin from "./main";
+import {detect} from "tinyld";
 
 export class TTSService {
 	plugin: TTSPlugin;
@@ -53,8 +54,9 @@ export class TTSService {
 			content = content.replace(/```[\s\S]*?```/g, '');
 		}
 
-		if (this.plugin.settings.speakTitle && title?.length > 0) {
-			content = title + " ! ! " + content;
+		if (!this.plugin.settings.speakComments) {
+			content = content.replace(/%[\s\S]*?%/g, '');
+			content = content.replace(/<!--[\s\S]*?-->/g, '');
 		}
 
 		if (!this.plugin.settings.speakEmoji) {
@@ -65,9 +67,12 @@ export class TTSService {
 		//add pauses, taken from https://stackoverflow.com/a/50944593/5589264
 		content = content.replace(/\n/g, " ! ");
 
-
 		//only speak link aliases.
 		content = content.replace(/\[\[(.*\|)(.*)]]/gm, '$2');
+
+		if (this.plugin.settings.speakTitle && title?.length > 0) {
+			content = title + " ! ! " + content;
+		}
 
 
 		const msg = new SpeechSynthesisUtterance();
@@ -103,17 +108,26 @@ export class TTSService {
 
 
 	async play(view: MarkdownView): Promise<void> {
-		let selectedText = view.editor.getSelection().length > 0 ? view.editor.getSelection() : window.getSelection().toString();
-		let content = selectedText.length > 0 ? selectedText : view.getViewData();
-		let title = selectedText.length > 0 ? null : view.getDisplayText();
-		const language = this.getLanguageFromFrontmatter(view);
+		const isPreview = view.getMode() === "preview";
+		let previewText = view.previewMode.containerEl.innerText;
 
-		if (!this.plugin.settings.speakFrontmatter)
-			if (content.startsWith("---")) {
+		const selectedText = view.editor.getSelection().length > 0 ? view.editor.getSelection() : window.getSelection().toString();
+		let content = selectedText.length > 0 ? selectedText : view.getViewData();
+		if (isPreview) {
+			content = previewText;
+		}
+		const title = selectedText.length > 0 ? null : view.getDisplayText();
+		let language = this.getLanguageFromFrontmatter(view);
+		if (language === "") {
+			language = detect(content);
+		}
+
+		if (!this.plugin.settings.speakFrontmatter) {
+			if (!isPreview) {
 				content = content.replace("---", "");
 				content = content.substring(content.indexOf("---") + 1);
 			}
-
+		}
 		await this.say(title, content, language);
 
 	}

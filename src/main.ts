@@ -77,7 +77,7 @@ export default class TTSPlugin extends Plugin {
 			await this.createMenu(event);
 		});
 
-		this.registerEvent(this.app.workspace.on('editor-menu', ((menu, editor, markdownView) => {
+		this.registerEvent(this.app.workspace.on('editor-menu', ((menu, _, markdownView) => {
 			menu.addItem((item) => {
 				item
 					.setTitle(window.getSelection().toString().length > 0 ? "Read selected text" : "Read the note")

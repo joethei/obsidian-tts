@@ -4,7 +4,6 @@ Plugin for [Obsidian](https://obsidian.md)
 
 ![GitHub package.json version](https://img.shields.io/github/package-json/v/joethei/obsidian-tts)
 ![GitHub manifest.json dynamic (path)](https://img.shields.io/github/manifest-json/minAppVersion/joethei/obsidian-tts?label=lowest%20supported%20app%20version)
-![GitHub](https://img.shields.io/github/license/joethei/obsidian-tts)
 [![libera manifesto](https://img.shields.io/badge/libera-manifesto-lightgrey.svg)](https://liberamanifesto.com)
 ---
 Features:
@@ -13,8 +12,11 @@ Features:
 ![Selection Demo](https://i.joethei.space/Obsidian_rjttPsYPwj.png)
 - usable with other plugins (currently [RSS Reader](https://github.com/joethei/obsidian-rss))
 
-You can create language specific voices, which will be used when you have a note with
-```lang: {languageCode}```
+You can create language specific voices, 
+the plugin will try to identify the language used.
+If it is not identified correctly you can overwrite this behaviour
+by having
+`lang: {languageCode}`
 in the [Frontmatter](https://help.obsidian.md/Advanced+topics/YAML+front+matter). The language code can be seen in the
 settings and is a two letter [ISO 639-1](https://www.loc.gov/standards/iso639-2/php/English_list.php) code.
 

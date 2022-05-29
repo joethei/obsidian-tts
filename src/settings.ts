@@ -19,6 +19,7 @@ export interface TTSSettings {
 	speakCodeblocks: boolean;
     speakTitle: boolean;
 	speakEmoji: boolean;
+	speakComments: boolean;
     languageVoices: LanguageVoiceMap[];
 	stopPlaybackWhenNoteChanges: boolean;
 }
@@ -34,6 +35,7 @@ export const DEFAULT_SETTINGS: TTSSettings = {
     speakTitle: true,
 	speakCodeblocks: false,
 	speakEmoji: false,
+	speakComments: false,
     languageVoices: [],
 	stopPlaybackWhenNoteChanges: false,
 }
@@ -266,6 +268,17 @@ export class TTSSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.speakCodeblocks)
 					.onChange(async (value) => {
 						this.plugin.settings.speakCodeblocks = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Comments")
+			.addToggle(async (toggle) => {
+				toggle
+					.setValue(this.plugin.settings.speakComments)
+					.onChange(async (value) => {
+						this.plugin.settings.speakComments = value;
 						await this.plugin.saveSettings();
 					});
 			});
