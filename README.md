@@ -1,4 +1,4 @@
-# Text to Speech
+# 🗣️Text to Speech
 
 Plugin for [Obsidian](https://obsidian.md)
 
