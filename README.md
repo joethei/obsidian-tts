@@ -2,7 +2,7 @@
 
 Plugin for [Obsidian](https://obsidian.md)
 
-![GitHub package.json version](https://img.shields.io/github/package-json/v/joethei/obsidian-tts)
+![Maintenance](https://shields.joethei.xyz:/maintenance/yes/2022)
 ![GitHub manifest.json dynamic (path)](https://img.shields.io/github/manifest-json/minAppVersion/joethei/obsidian-tts?label=lowest%20supported%20app%20version)
 [![libera manifesto](https://img.shields.io/badge/libera-manifesto-lightgrey.svg)](https://liberamanifesto.com)
 ---
@@ -48,7 +48,7 @@ You can use this plugins API to add Text to Speech capabilities to your plugin.
 
 This uses the [@vanakat/plugin-api](https://www.npmjs.com/package/@vanakat/plugin-api) package.
 
-You can find the API documentation here: []()
+You can find the API documentation here: [API Documentation](https://joethei.github.io/obsidian-tts/interfaces/TTSService.html)
 
 ```js
 const tts = pluginApi('tts');
