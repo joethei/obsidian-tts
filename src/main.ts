@@ -3,6 +3,8 @@ import {
 	Plugin
 } from 'obsidian';
 import {DEFAULT_SETTINGS, TTSSettings, TTSSettingsTab} from "./settings";
+import {TTSServiceImplementation} from "./TTSServiceImplementation";
+import {registerAPI} from "@vanakat/plugin-api";
 import {TTSService} from "./TTSService";
 
 
@@ -12,7 +14,7 @@ export default class TTSPlugin extends Plugin {
 	statusbar: HTMLElement;
 
 	async onload(): Promise<void> {
-		this.ttsService = new TTSService(this);
+		this.ttsService = new TTSServiceImplementation(this);
 
 		console.log("loading tts plugin");
 
@@ -103,6 +105,8 @@ export default class TTSPlugin extends Plugin {
 		this.statusbar.onClickEvent(async (event) => {
 			await this.createMenu(event);
 		});
+
+		registerAPI("tts", this.ttsService, this);
 	}
 
 	async createMenu(event: MouseEvent): Promise<void> {

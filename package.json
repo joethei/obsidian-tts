@@ -6,22 +6,32 @@
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "node esbuild.config.mjs production",
-		"lint": "eslint . --ext .ts"
+		"lint": "eslint . --ext .ts",
+		"docs": "typedoc"
 	},
 	"keywords": [],
 	"author": "joethei",
 	"license": "GPL-3.0",
-	"devDependencies": {
+	"dependencies": {
 		"@cospired/i18n-iso-languages": "^3.1.1",
 		"@types/node": "^16.11.6",
-		"@typescript-eslint/eslint-plugin": "^4.33.0",
-		"@typescript-eslint/parser": "^4.33.0",
 		"builtin-modules": "^3.2.0",
-		"esbuild": "0.13.12",
-		"eslint": "^7.32.0",
-		"obsidian": "^0.12.17",
+		"obsidian": "0.15.2",
 		"tslib": "2.3.1",
 		"typescript": "4.4.4",
-		"tinyld": "1.2.3"
+		"tinyld": "1.2.3",
+		"@vanakat/plugin-api": "0.1.0"
+	},
+	"devDependencies": {
+		"@typescript-eslint/eslint-plugin": "^4.33.0",
+		"@typescript-eslint/parser": "^4.33.0",
+		"esbuild": "0.13.12",
+		"eslint": "7.32.0",
+		"@microsoft/tsdoc": "0.14.1",
+		"eslint-plugin-tsdoc": "0.2.16",
+		"typedoc": "0.22.18"
+	},
+	"overrides": {
+		"obsidian" : "$obsidian"
 	}
 }

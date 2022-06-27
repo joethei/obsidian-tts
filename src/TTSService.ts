@@ -1,150 +1,64 @@
-import {MarkdownView, Notice, parseYaml} from "obsidian";
-import {LanguageVoiceMap} from "./settings";
-import TTSPlugin from "./main";
-import {detect} from "tinyld";
+import {MarkdownView} from "obsidian";
 
-export class TTSService {
-	plugin: TTSPlugin;
+export interface TTSService {
 
-	constructor(plugin: TTSPlugin) {
-		this.plugin = plugin;
-	}
+	/**
+	 * @public
+	 */
+	stop(): void;
 
-	stop(): void {
-		if (!this.isSpeaking()) return;
-		window.speechSynthesis.cancel();
-	}
+	/**
+	 * @public
+	 */
+	pause(): void;
 
-	pause(): void {
-		if (!this.isSpeaking()) return;
-		window.speechSynthesis.pause();
-	}
+	/**
+	 * @public
+	 */
+	resume(): void;
 
-	resume(): void {
-		if (!this.isSpeaking()) return;
-		window.speechSynthesis.resume();
-	}
+	/**
+	 * @public
+	 */
+	isSpeaking(): boolean;
 
-	isSpeaking(): boolean {
-		return window.speechSynthesis.speaking;
-	}
+	/**
+	 * @public
+	 */
+	isPaused(): boolean;
 
-	isPaused(): boolean {
-		return window.speechSynthesis.paused;
-	}
+	/**
+	 * @internal
+	 * get the name of the voice configured for this language
+	 * if there is no voice configured this returns the default
+	 * @param languageCode {@link https://www.loc.gov/standards/iso639-2/php/English_list.php ISO 639-1 code}
+	 */
+	getVoice(languageCode: string) : string;
 
-	async sayWithVoice(title: string, text: string, voice: string): Promise<void> {
-		let content = text;
-		if (!this.plugin.settings.speakSyntax) {
-			content = content.replace(/#/g, "");
-			content = content.replace(/-/g, "");
-			content = content.replace(/_/g, "");
-			content = content.replace(/\*/g, "");
-			content = content.replace(/\^/g, "");
-			content = content.replace(/==/g, "");
+	/**
+	 * @internal
+	 * @param title First thing to be spoken, with a pause before the text.
+	 * This may not be used, depending on user settings
+	 * @param text Some text will be removed according to user settings, before playback starts.
+	 * @param voice if there is no voice configured with this name the default voice, according to user settings, will be used.
+	 */
+	sayWithVoice(title: string, text: string, voice: string): Promise<void>;
 
-			//block references
-			content = content.replace(/^\S{6}/g, "");
-		}
-		if (!this.plugin.settings.speakLinks) {
-			//regex from https://stackoverflow.com/a/37462442/5589264
-			content = content.replace(/(?:__|[*#])|\[(.*?)]\(.*?\)/gm, '$1');
-		}
-		if (!this.plugin.settings.speakCodeblocks) {
-			content = content.replace(/```[\s\S]*?```/g, '');
-		}
+	/**
+	 *
+	 * @public
+	 * @param title First thing to be spoken, with a pause before the text.
+	 * This may not be used, depending on user settings
+	 * @param text Some text will be removed according to user settings, before playback starts.
+	 * @param languageCode {@link https://www.loc.gov/standards/iso639-2/php/English_list.php ISO 639-1 code}
+	 */
+	say(title: string, text: string, languageCode?: string): Promise<void>;
 
-		if (!this.plugin.settings.speakComments) {
-			content = content.replace(/%[\s\S]*?%/g, '');
-			content = content.replace(/<!--[\s\S]*?-->/g, '');
-		}
-
-		if (!this.plugin.settings.speakEmoji) {
-			//regex from https://ihateregex.io/expr/emoji/
-			content = content.replace(/(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g, '');
-		}
-
-		//add pauses, taken from https://stackoverflow.com/a/50944593/5589264
-		content = content.replace(/\n/g, " ! ");
-
-		//only speak link aliases.
-		content = content.replace(/\[\[(.*\|)(.*)]]/gm, '$2');
-
-		if (this.plugin.settings.speakTitle && title?.length > 0) {
-			content = title + " ! ! " + content;
-		}
-
-
-		const msg = new SpeechSynthesisUtterance();
-		msg.text = content;
-		msg.volume = this.plugin.settings.volume;
-		msg.rate = this.plugin.settings.rate;
-		msg.pitch = this.plugin.settings.pitch;
-		msg.voice = window.speechSynthesis.getVoices().filter(otherVoice => otherVoice.name === voice)[0];
-		window.speechSynthesis.speak(msg);
-
-		this.plugin.statusbar.setText("TTS: speaking");
-	}
-
-
-	getVoice(languageCode: string): string {
-		const filtered = this.plugin.settings.languageVoices.filter((lang: LanguageVoiceMap) => lang.language === languageCode);
-		if (filtered.length === 0) return null;
-		return filtered[0].voice;
-	}
-
-	async say(title: string, text: string, languageCode?: string): Promise<void> {
-		let usedVoice = this.plugin.settings.defaultVoice;
-		if (languageCode && languageCode.length !== 0) {
-			const voice = this.getVoice(languageCode);
-			if (voice) {
-				usedVoice = voice;
-			} else {
-				new Notice("TTS: could not find voice for language " + languageCode + ". Using default voice.");
-			}
-		}
-		await this.sayWithVoice(title, text, usedVoice);
-	}
-
-
-	async play(view: MarkdownView): Promise<void> {
-		const isPreview = view.getMode() === "preview";
-		let previewText = view.previewMode.containerEl.innerText;
-
-		const selectedText = view.editor.getSelection().length > 0 ? view.editor.getSelection() : window.getSelection().toString();
-		let content = selectedText.length > 0 ? selectedText : view.getViewData();
-		if (isPreview) {
-			content = previewText;
-		}
-		const title = selectedText.length > 0 ? null : view.getDisplayText();
-		let language = this.getLanguageFromFrontmatter(view);
-		if (language === "") {
-			language = detect(content);
-		}
-
-		if (!this.plugin.settings.speakFrontmatter) {
-			if (!isPreview) {
-				content = content.replace("---", "");
-				content = content.substring(content.indexOf("---") + 1);
-			}
-		}
-		await this.say(title, content, language);
-
-	}
-
-	getLanguageFromFrontmatter(view: MarkdownView): string {
-		let language = "";
-		//check if any language is defined in frontmatter
-		if (!view.getViewData().startsWith("---")) return language;
-
-		const frontmatter = view.getViewData().match(/---[\s\S]*?---/);
-		if (frontmatter && frontmatter[0]) {
-			const parsedFrontmatter = parseYaml(frontmatter[0].replace(/---/g, ''));
-			if (parsedFrontmatter['lang']) {
-				language = parsedFrontmatter['lang'];
-			}
-		}
-		return language;
-	}
+	/**
+	 * Use the content of the selected view as source.
+	 * @internal
+	 * @param view
+	 */
+	play(view: MarkdownView): void;
 
 }
