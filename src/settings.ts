@@ -21,7 +21,8 @@ export interface TTSSettings {
 	speakEmoji: boolean;
 	speakComments: boolean;
     languageVoices: LanguageVoiceMap[];
-	stopPlaybackWhenNoteChanges: boolean;
+    stopPlaybackWhenNoteChanges: boolean;
+    savedVersion: string;
 }
 
 export const DEFAULT_SETTINGS: TTSSettings = {
@@ -37,7 +38,8 @@ export const DEFAULT_SETTINGS: TTSSettings = {
 	speakEmoji: false,
 	speakComments: false,
     languageVoices: [],
-	stopPlaybackWhenNoteChanges: false,
+    stopPlaybackWhenNoteChanges: false,
+    savedVersion: "0.0.0",
 }
 
 export class TTSSettingsTab extends PluginSettingTab {
