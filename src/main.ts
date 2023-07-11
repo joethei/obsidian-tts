@@ -72,8 +72,8 @@ export default class TTSPlugin extends Plugin {
 			id: 'start-pause-resume-tts-toggle',
 			name: 'Start pause resume toggle',
 			checkCallback: (checking: boolean) => {
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (!checking) {
-					const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
 					if (markdownView) {
 						if (this.ttsService.isSpeaking() && !this.ttsService.isPaused()) {
 							this.ttsService.pause();
@@ -85,8 +85,8 @@ export default class TTSPlugin extends Plugin {
 							this.ttsService.play(markdownView);
 						}
 					}
-					return !!markdownView
 				}
+				return !!markdownView
 			}
 		});
 

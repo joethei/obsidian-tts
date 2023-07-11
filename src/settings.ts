@@ -1,7 +1,7 @@
-import {ButtonComponent, PluginSettingTab, Setting} from "obsidian";
-import {TextInputPrompt} from "./TextInputPrompt";
+import { ButtonComponent, PluginSettingTab, Setting } from "obsidian";
+import { TextInputPrompt } from "./TextInputPrompt";
 import TTSPlugin from "./main";
-import {LanguageVoiceModal} from "./LanguageVoiceModal";
+import { LanguageVoiceModal } from "./LanguageVoiceModal";
 
 export interface LanguageVoiceMap {
     language: string;
@@ -16,10 +16,10 @@ export interface TTSSettings {
     speakLinks: boolean;
     speakFrontmatter: boolean;
     speakSyntax: boolean;
-	speakCodeblocks: boolean;
+    speakCodeblocks: boolean;
     speakTitle: boolean;
-	speakEmoji: boolean;
-	speakComments: boolean;
+    speakEmoji: boolean;
+    speakComments: boolean;
     languageVoices: LanguageVoiceMap[];
     stopPlaybackWhenNoteChanges: boolean;
 }
@@ -33,9 +33,9 @@ export const DEFAULT_SETTINGS: TTSSettings = {
     speakFrontmatter: false,
     speakSyntax: false,
     speakTitle: true,
-	speakCodeblocks: false,
-	speakEmoji: false,
-	speakComments: false,
+    speakCodeblocks: false,
+    speakEmoji: false,
+    speakComments: false,
     languageVoices: [],
     stopPlaybackWhenNoteChanges: false,
 }
@@ -49,11 +49,11 @@ export class TTSSettingsTab extends PluginSettingTab {
     }
 
     display(): void {
-        const {containerEl} = this;
+        const { containerEl } = this;
 
         containerEl.empty();
 
-        containerEl.createEl('h2', {text: 'Text to Speech - Settings'});
+        containerEl.createEl('h2', { text: 'Text to Speech - Settings' });
 
         new Setting(containerEl)
             .setName("Default voice")
@@ -69,21 +69,21 @@ export class TTSSettingsTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     });
             }).addExtraButton(button => {
-            button
-                .setIcon("play-audio-glyph")
-                .setTooltip("Test voice")
-                .onClick(async () => {
-                    const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian");
-                    await input.openAndGetValue((async value => {
-                        if (value.getValue().length === 0) return;
-                        await this.plugin.ttsService.say('', value.getValue());
-                    }));
+                button
+                    .setIcon("play-audio-glyph")
+                    .setTooltip("Test voice")
+                    .onClick(async () => {
+                        const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian");
+                        await input.openAndGetValue((async value => {
+                            if (value.getValue().length === 0) return;
+                            await this.plugin.ttsService.say('', value.getValue());
+                        }));
 
 
-                });
-        });
+                    });
+            });
 
-        containerEl.createEl("h3", {text: "Language specific voices"});
+        containerEl.createEl("h3", { text: "Language specific voices" });
 
         new Setting(containerEl)
             .setName("Add New")
@@ -116,10 +116,10 @@ export class TTSSettingsTab extends PluginSettingTab {
         const voicesDiv = additionalContainer.createDiv("voices");
         for (const languageVoice of this.plugin.settings.languageVoices) {
 
-			//@ts-ignore
-			const displayNames = new Intl.DisplayNames([languageVoice.language], {type: 'language', fallback: 'none'});
-			const setting = new Setting(voicesDiv);
-			setting.setName(displayNames.of(languageVoice.language) + " -  " + languageVoice.language);
+            //@ts-ignore
+            const displayNames = new Intl.DisplayNames([languageVoice.language], { type: 'language', fallback: 'none' });
+            const setting = new Setting(voicesDiv);
+            setting.setName(displayNames.of(languageVoice.language) + " -  " + languageVoice.language);
             setting.setDesc(languageVoice.voice);
 
             setting
@@ -131,10 +131,10 @@ export class TTSSettingsTab extends PluginSettingTab {
 
                             modal.onClose = async () => {
                                 if (modal.saved) {
-									const setting = this.plugin.settings.languageVoices.filter(value => value.language !== modal.language);
-									setting.push({language: modal.language, voice: modal.voice});
-									this.plugin.settings.languageVoices = setting;
-									await this.plugin.saveSettings();
+                                    const setting = this.plugin.settings.languageVoices.filter(value => value.language !== modal.language);
+                                    setting.push({ language: modal.language, voice: modal.voice });
+                                    this.plugin.settings.languageVoices = setting;
+                                    await this.plugin.saveSettings();
 
                                     this.display();
                                 }
@@ -147,8 +147,8 @@ export class TTSSettingsTab extends PluginSettingTab {
                     b.setIcon("trash")
                         .setTooltip("Delete")
                         .onClick(async () => {
-							this.plugin.settings.languageVoices = this.plugin.settings.languageVoices.filter(value => value.language !== languageVoice.language);
-							await this.plugin.saveSettings();
+                            this.plugin.settings.languageVoices = this.plugin.settings.languageVoices.filter(value => value.language !== languageVoice.language);
+                            await this.plugin.saveSettings();
 
                             this.display();
                         });
@@ -157,7 +157,7 @@ export class TTSSettingsTab extends PluginSettingTab {
 
         }
 
-        containerEl.createEl("h3", {text: "Audio settings"});
+        containerEl.createEl("h3", { text: "Audio settings" });
 
         new Setting(containerEl)
             .setName("Volume")
@@ -171,15 +171,15 @@ export class TTSSettingsTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     });
             }).addExtraButton((button) => {
-            button
-                .setIcon('reset')
-                .setTooltip('restore default')
-                .onClick(async () => {
-                    this.plugin.settings.volume = DEFAULT_SETTINGS.volume;
-                    await this.plugin.saveSettings();
-                    this.display();
-                });
-        });
+                button
+                    .setIcon('reset')
+                    .setTooltip('restore default')
+                    .onClick(async () => {
+                        this.plugin.settings.volume = DEFAULT_SETTINGS.volume;
+                        await this.plugin.saveSettings();
+                        this.display();
+                    });
+            });
 
         new Setting(containerEl)
             .setName("Rate")
@@ -194,15 +194,15 @@ export class TTSSettingsTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     });
             }).addExtraButton((button) => {
-            button
-                .setIcon('reset')
-                .setTooltip('restore default')
-                .onClick(async () => {
-                    this.plugin.settings.rate = DEFAULT_SETTINGS.rate;
-                    await this.plugin.saveSettings();
-                    this.display();
-                });
-        });
+                button
+                    .setIcon('reset')
+                    .setTooltip('restore default')
+                    .onClick(async () => {
+                        this.plugin.settings.rate = DEFAULT_SETTINGS.rate;
+                        await this.plugin.saveSettings();
+                        this.display();
+                    });
+            });
 
         new Setting(containerEl)
             .setName("Pitch")
@@ -216,17 +216,17 @@ export class TTSSettingsTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     });
             }).addExtraButton((button) => {
-            button
-                .setIcon('reset')
-                .setTooltip('restore default')
-                .onClick(async () => {
-                    this.plugin.settings.pitch = DEFAULT_SETTINGS.pitch;
-                    await this.plugin.saveSettings();
-                    this.display();
-                });
-        });
+                button
+                    .setIcon('reset')
+                    .setTooltip('restore default')
+                    .onClick(async () => {
+                        this.plugin.settings.pitch = DEFAULT_SETTINGS.pitch;
+                        await this.plugin.saveSettings();
+                        this.display();
+                    });
+            });
 
-        containerEl.createEl('h3', {text: 'Speak'});
+        containerEl.createEl('h3', { text: 'Speak' });
 
         new Setting(containerEl)
             .setName("Title")
@@ -261,27 +261,27 @@ export class TTSSettingsTab extends PluginSettingTab {
                     });
             });
 
-		new Setting(containerEl)
-			.setName("Codeblocks")
-			.addToggle(async (toggle) => {
-				toggle
-					.setValue(this.plugin.settings.speakCodeblocks)
-					.onChange(async (value) => {
-						this.plugin.settings.speakCodeblocks = value;
-						await this.plugin.saveSettings();
-					});
-			});
+        new Setting(containerEl)
+            .setName("Codeblocks")
+            .addToggle(async (toggle) => {
+                toggle
+                    .setValue(this.plugin.settings.speakCodeblocks)
+                    .onChange(async (value) => {
+                        this.plugin.settings.speakCodeblocks = value;
+                        await this.plugin.saveSettings();
+                    });
+            });
 
-		new Setting(containerEl)
-			.setName("Comments")
-			.addToggle(async (toggle) => {
-				toggle
-					.setValue(this.plugin.settings.speakComments)
-					.onChange(async (value) => {
-						this.plugin.settings.speakComments = value;
-						await this.plugin.saveSettings();
-					});
-			});
+        new Setting(containerEl)
+            .setName("Comments")
+            .addToggle(async (toggle) => {
+                toggle
+                    .setValue(this.plugin.settings.speakComments)
+                    .onChange(async (value) => {
+                        this.plugin.settings.speakComments = value;
+                        await this.plugin.saveSettings();
+                    });
+            });
 
         new Setting(containerEl)
             .setName("Syntax")
@@ -294,27 +294,27 @@ export class TTSSettingsTab extends PluginSettingTab {
                     });
             });
 
-		new Setting(containerEl)
-			.setName("Emoji")
-			.addToggle(async (toggle) => {
-				toggle
-					.setValue(this.plugin.settings.speakEmoji)
-					.onChange(async (value) => {
-						this.plugin.settings.speakEmoji = value;
-						await this.plugin.saveSettings();
-					});
-			});
+        new Setting(containerEl)
+            .setName("Emoji")
+            .addToggle(async (toggle) => {
+                toggle
+                    .setValue(this.plugin.settings.speakEmoji)
+                    .onChange(async (value) => {
+                        this.plugin.settings.speakEmoji = value;
+                        await this.plugin.saveSettings();
+                    });
+            });
 
-		containerEl.createEl("h2", {text: "Misc"});
-		new Setting(containerEl)
-			.setName("Stop playback when a note is closed/new note is opened")
-			.addToggle(async (toggle) => {
-				toggle
-					.setValue(this.plugin.settings.stopPlaybackWhenNoteChanges)
-					.onChange(async (value) => {
-						this.plugin.settings.stopPlaybackWhenNoteChanges = value;
-						await this.plugin.saveSettings();
-					});
-			});
+        containerEl.createEl("h2", { text: "Misc" });
+        new Setting(containerEl)
+            .setName("Stop playback when a note is closed/new note is opened")
+            .addToggle(async (toggle) => {
+                toggle
+                    .setValue(this.plugin.settings.stopPlaybackWhenNoteChanges)
+                    .onChange(async (value) => {
+                        this.plugin.settings.stopPlaybackWhenNoteChanges = value;
+                        await this.plugin.saveSettings();
+                    });
+            });
     }
 }
