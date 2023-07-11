@@ -8,6 +8,7 @@ Plugin for [Obsidian](https://obsidian.md)
 ---
 Features:
 
+- New command Start pause resume toggle
 - Start playback for note from statusbar and ribbon
 - Only speaking selected text in edit mode:
   ![Selection Demo](https://i.joethei.space/Obsidian_rjttPsYPwj.png)

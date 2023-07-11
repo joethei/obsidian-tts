@@ -6,14 +6,12 @@ import { DEFAULT_SETTINGS, TTSSettings, TTSSettingsTab } from "./settings";
 import { TTSServiceImplementation } from "./TTSServiceImplementation";
 import { registerAPI } from "@vanakat/plugin-api";
 import { TTSService } from "./TTSService";
-import { TTSPluginUpdateInfo } from './updateInfo';
 
 
 export default class TTSPlugin extends Plugin {
 	ttsService: TTSService;
 	settings: TTSSettings;
 	statusbar: HTMLElement;
-	paused: boolean = false;
 
 	async onload(): Promise<void> {
 		this.ttsService = new TTSServiceImplementation(this);
@@ -27,36 +25,15 @@ export default class TTSPlugin extends Plugin {
 		}
 
 		await this.loadSettings();
-		if (
-			this.settings.savedVersion !== "0.0.0" && // never installed
-			this.settings.savedVersion !== this.manifest.version // new version
-		) {
-			new TTSPluginUpdateInfo(this.app, this).open();
-		}
 
 		this.addCommand({
 			id: 'start-tts-playback',
 			name: 'Start playback',
 			checkCallback: (checking: boolean) => {
-				if (!checking) {
-					const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-					if (markdownView) {
-						if (this.ttsService.isSpeaking() && !this.paused) {
-							console.debug("pausing")
-							this.ttsService.pause()
-							this.paused = true
-						}
-						else if (this.paused) {
-							console.debug("resuming")
-							this.ttsService.resume(); this.paused = false
-						}
-						else {
-							console.debug("playing")
-							this.ttsService.play(markdownView)
-						}
-					}
-					return !!markdownView
-				}
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (!checking && markdownView)
+					this.ttsService.play(markdownView);
+				return !!markdownView;
 			}
 		});
 
@@ -68,6 +45,48 @@ export default class TTSPlugin extends Plugin {
 					this.ttsService.stop();
 				return this.ttsService.isSpeaking();
 
+			}
+		});
+
+		this.addCommand({
+			id: 'pause-tts-playback',
+			name: 'pause playback',
+			checkCallback: (checking: boolean) => {
+				if (!checking)
+					this.ttsService.pause();
+				return this.ttsService.isSpeaking();
+			}
+		});
+
+		this.addCommand({
+			id: 'resume-tts-playback',
+			name: 'Resume playback',
+			checkCallback: (checking: boolean) => {
+				if (!checking)
+					this.ttsService.resume();
+				return this.ttsService.isPaused();
+			}
+		});
+
+		this.addCommand({
+			id: 'start-pause-resume-tts-toggle',
+			name: 'Start pause resume toggle',
+			checkCallback: (checking: boolean) => {
+				if (!checking) {
+					const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+					if (markdownView) {
+						if (this.ttsService.isSpeaking() && !this.ttsService.isPaused()) {
+							this.ttsService.pause();
+						}
+						else if (this.ttsService.isPaused()) {
+							this.ttsService.resume();
+						}
+						else {
+							this.ttsService.play(markdownView);
+						}
+					}
+					return !!markdownView
+				}
 			}
 		});
 
@@ -122,12 +141,12 @@ export default class TTSPlugin extends Plugin {
 					item
 						.setIcon("play-audio-glyph")
 						.setTitle("Add to playback queue")
-						.onClick((async () => {
-							await this.ttsService.play(markdownView);
+						.onClick((() => {
+							this.ttsService.play(markdownView);
 						}));
 				});
 			} else {
-				await this.ttsService.play(markdownView);
+				this.ttsService.play(markdownView);
 				return;
 			}
 		}
@@ -164,7 +183,8 @@ export default class TTSPlugin extends Plugin {
 			}
 		}
 
-		menu.showAtPosition({x: event.x, y: event.y});
+
+		menu.showAtPosition({ x: event.x, y: event.y });
 	}
 
 	async onunload(): Promise<void> {
