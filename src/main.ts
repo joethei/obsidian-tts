@@ -70,7 +70,7 @@ export default class TTSPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'start-pause-resume-tts-playback',
-			name: 'Start pause resume playback',
+			name: 'Start/Pause/Resume playback',
 			checkCallback: (checking: boolean) => {
 				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (!checking) {
