@@ -110,13 +110,9 @@ export class TTSServiceImplementation implements TTSService {
 
 	async play(view: MarkdownView): Promise<void> {
 		const isPreview = view.getMode() === "preview";
-		const previewText = view.previewMode.containerEl.innerText;
 
 		const selectedText = view.editor.getSelection().length > 0 ? view.editor.getSelection() : window.getSelection().toString();
 		let content = selectedText.length > 0 ? selectedText : view.getViewData();
-		if (isPreview) {
-			content = previewText;
-		}
 		const title = selectedText.length > 0 ? null : view.getDisplayText();
 		let language = this.getLanguageFromFrontmatter(view);
 		if (language === "") {
