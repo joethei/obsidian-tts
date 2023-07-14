@@ -68,6 +68,28 @@ export default class TTSPlugin extends Plugin {
 			}
 		});
 
+		this.addCommand({
+			id: 'start-pause-resume-tts-playback',
+			name: 'Start/Pause/Resume playback',
+			checkCallback: (checking: boolean) => {
+				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (!checking) {
+					if (markdownView) {
+						if (this.ttsService.isSpeaking() && !this.ttsService.isPaused()) {
+							this.ttsService.pause();
+						}
+						else if (this.ttsService.isPaused()) {
+							this.ttsService.resume();
+						}
+						else {
+							this.ttsService.play(markdownView);
+						}
+					}
+				}
+				return !!markdownView
+			}
+		});
+
 		//clear statusbar text if not speaking
 		this.registerInterval(window.setInterval(() => {
 			if (!this.ttsService.isSpeaking()) {

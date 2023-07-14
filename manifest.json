@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-tts",
 	"name": "Text to Speech",
-	"version": "0.5.1",
+	"version": "0.5.2",
 	"minAppVersion": "0.12.0",
 	"description": "Text to speech for Obsidian. Hear your notes.",
 	"author": "Johannes Theiner",
