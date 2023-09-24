@@ -36,11 +36,7 @@ This plugin uses the native API of your Operating System, to add a new language 
 
 ## Installing the plugin
 
-- `Settings > Third-party plugins > Community Plugins > Browse` and search for `Text to Speech`
-- Using the [Beta Reviewers Auto-update Tester](https://github.com/TfTHacker/obsidian42-brat) plugin with the repo
-  path: `joethei/obsidian-tts`
-- Copy over `main.js`, `styles.css`, `manifest.json` from the releases to your
-  vault `VaultFolder/.obsidian/plugins/obsidian-tts/`.
+- `Settings > Community plugins > Community Plugins > Browse` and search for `Text to Speech`
 
 ## API
 
