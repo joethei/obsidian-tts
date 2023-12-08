@@ -1,4 +1,4 @@
-import {MarkdownView, Notice, parseYaml} from "obsidian";
+import {MarkdownView, Notice, parseYaml, setIcon, TFile} from "obsidian";
 import {LanguageVoiceMap} from "./settings";
 import TTSPlugin from "./main";
 import {detect} from "tinyld";
@@ -83,8 +83,7 @@ export class TTSServiceImplementation implements TTSService {
 		msg.pitch = this.plugin.settings.pitch;
 		msg.voice = window.speechSynthesis.getVoices().filter(otherVoice => otherVoice.name === voice)[0];
 		window.speechSynthesis.speak(msg);
-
-		this.plugin.statusbar.setText("TTS: speaking");
+		this.plugin.statusbar.createSpan({text: 'Speaking'});
 	}
 
 
@@ -107,17 +106,20 @@ export class TTSServiceImplementation implements TTSService {
 		await this.sayWithVoice(title, text, usedVoice);
 	}
 
-
-	async play(view: MarkdownView): Promise<void> {
+	async play(view: MarkdownView, cusorPos?: number): Promise<void> {
 		const isPreview = view.getMode() === "preview";
+
 		const previewText = view.previewMode.containerEl.innerText;
+
 
 		const selectedText = view.editor.getSelection().length > 0 ? view.editor.getSelection() : window.getSelection().toString();
 		let content = selectedText.length > 0 ? selectedText : view.getViewData();
 		if (isPreview) {
 			content = previewText;
 		}
-		const title = selectedText.length > 0 ? null : view.getDisplayText();
+		//@ts-ignore
+		const hasInlineTitle = view.app.vault.getConfig("showInlineTitle");
+		const title = selectedText.length > 0 ? null : (hasInlineTitle ? null : view.getDisplayText());
 		let language = this.getLanguageFromFrontmatter(view);
 		if (language === "") {
 			language = detect(content);
@@ -134,6 +136,7 @@ export class TTSServiceImplementation implements TTSService {
 	}
 
 	getLanguageFromFrontmatter(view: MarkdownView): string {
+		view.
 		let language = "";
 		//check if any language is defined in frontmatter
 		if (!view.getViewData().startsWith("---")) return language;

@@ -59,6 +59,6 @@ export interface TTSService {
 	 * @internal
 	 * @param view
 	 */
-	play(view: MarkdownView): void;
+	play(view: MarkdownView, cursorPos?: number): void;
 
 }
