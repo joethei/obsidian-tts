@@ -2,9 +2,9 @@
 
 Plugin for [Obsidian](https://obsidian.md)
 
-![Maintenance](https://shields.joethei.xyz/maintenance/yes/2022)
-![GitHub manifest.json dynamic (path)](https://shields.joethei.xyz/github/manifest-json/minAppVersion/joethei/obsidian-tts?label=lowest%20supported%20app%20version)
-[![libera manifesto](https://shields.joethei.xyz/badge/libera-manifesto-lightgrey.svg)](https://liberamanifesto.com)
+![Maintenance](https://shields.io/maintenance/yes/2023)
+![GitHub manifest.json dynamic (path)](https://shields.io/github/manifest-json/minAppVersion/joethei/obsidian-tts?label=lowest%20supported%20app%20version)
+[![libera manifesto](https://shields.io/badge/libera-manifesto-lightgrey.svg)](https://liberamanifesto.com)
 ---
 Features:
 
@@ -36,11 +36,7 @@ This plugin uses the native API of your Operating System, to add a new language 
 
 ## Installing the plugin
 
-- `Settings > Third-party plugins > Community Plugins > Browse` and search for `Text to Speech`
-- Using the [Beta Reviewers Auto-update Tester](https://github.com/TfTHacker/obsidian42-brat) plugin with the repo
-  path: `joethei/obsidian-tts`
-- Copy over `main.js`, `styles.css`, `manifest.json` from the releases to your
-  vault `VaultFolder/.obsidian/plugins/obsidian-tts/`.
+- `Settings > Community plugins > Community Plugins > Browse` and search for `Text to Speech`
 
 ## API
 

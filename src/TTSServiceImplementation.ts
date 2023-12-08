@@ -50,6 +50,8 @@ export class TTSServiceImplementation implements TTSService {
 		if (!this.plugin.settings.speakLinks) {
 			//regex from https://stackoverflow.com/a/37462442/5589264
 			content = content.replace(/(?:__|[*#])|\[(.*?)]\(.*?\)/gm, '$1');
+			content = content.replace(/http[s]:\/\/[^\s]*/gm, '');
+			console.log(content);
 		}
 		if (!this.plugin.settings.speakCodeblocks) {
 			content = content.replace(/```[\s\S]*?```/g, '');
