@@ -45,7 +45,7 @@ export class TTSServiceImplementation implements TTSService {
 			content = content.replace(/==/g, "");
 
 			//block references
-			content = content.replace(/^\S{6}/g, "");
+            content = content.replace(/\^\S*/g, "");
 		}
 		if (!this.plugin.settings.speakLinks) {
 			//regex from https://stackoverflow.com/a/37462442/5589264
