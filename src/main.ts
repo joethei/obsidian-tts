@@ -249,6 +249,10 @@ export default class TTSPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
+	async onExternalSettingsChange() {
+		await this.loadSettings();
+	}
+
 	getVoice(languageCode: string): string {
 		const filtered = this.settings.languageVoices.filter((lang: LanguageVoiceMap) => lang.language === languageCode);
 		if (filtered.length === 0) return null;
