@@ -2,6 +2,7 @@ import {ButtonComponent, PluginSettingTab, Setting} from "obsidian";
 import {TextInputPrompt} from "./TextInputPrompt";
 import TTSPlugin from "./main";
 import {LanguageVoiceModal} from "./LanguageVoiceModal";
+import {ServiceConfigurationModal} from "./ServiceConfigurationModal";
 
 export interface LanguageVoiceMap {
     language: string;
@@ -22,6 +23,11 @@ export interface TTSSettings {
 	speakComments: boolean;
     languageVoices: LanguageVoiceMap[];
 	stopPlaybackWhenNoteChanges: boolean;
+	services: {
+		openai: {
+			key: string;
+		}
+	}
 }
 
 export const DEFAULT_SETTINGS: TTSSettings = {
@@ -38,6 +44,11 @@ export const DEFAULT_SETTINGS: TTSSettings = {
 	speakComments: false,
     languageVoices: [],
 	stopPlaybackWhenNoteChanges: false,
+	services: {
+		openai: {
+			key: '',
+		}
+	}
 }
 
 export class TTSSettingsTab extends PluginSettingTab {
@@ -53,14 +64,28 @@ export class TTSSettingsTab extends PluginSettingTab {
 
         containerEl.empty();
 
-        containerEl.createEl('h2', {text: 'Text to Speech - Settings'});
-
         new Setting(containerEl)
             .setName("Default voice")
             .addDropdown(async (dropdown) => {
-                const voices = window.speechSynthesis.getVoices();
+				const voices = [];
+				const services = this.plugin.services;
+				for (const service of services) {
+					if (service.isConfigured() && service.isValid()) {
+						for (const voice of await service.getVoices()) {
+							voices.push({
+								serviceId: service.id,
+								serviceName: service.name,
+								id: voice.id,
+								name: voice.name,
+								languages: voice.languages
+							});
+						}
+					}
+				}
+
                 for (const voice of voices) {
-                    dropdown.addOption(voice.name, voice.name);
+                    //dropdown.addOption(`${voice.serviceId}-${voice.id}`, `${voice.serviceName}: ${voice.name}`);
+					dropdown.addOption(`${voice.serviceId}-${voice.id}`, `${voice.name}`);
                 }
                 dropdown
                     .setValue(this.plugin.settings.defaultVoice)
@@ -76,22 +101,40 @@ export class TTSSettingsTab extends PluginSettingTab {
                     const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian");
                     await input.openAndGetValue((async value => {
                         if (value.getValue().length === 0) return;
-                        await this.plugin.ttsService.say('', value.getValue());
+                        await this.plugin.say('', value.getValue());
                     }));
 
 
                 });
         });
 
-        containerEl.createEl("h3", {text: "Language specific voices"});
+		/*new Setting(containerEl)
+			.setName("Services")
+			.setHeading();
+
+		new Setting(containerEl)
+			.setName("New service")
+			.setDesc("Configure new service")
+			.addButton((button: ButtonComponent): ButtonComponent => {
+				return button
+					.setTooltip("Configure new service")
+					.setIcon("plus")
+					.onClick(() => {
+						new ServiceConfigurationModal(this.plugin).open();
+					});
+			});*/
+
+		new Setting(containerEl)
+			.setName("Language specific voices")
+			.setHeading();
 
         new Setting(containerEl)
-            .setName("Add New")
+            .setName("Add new")
             .setDesc("Add a new language specific voice")
             .addButton((button: ButtonComponent): ButtonComponent => {
                 return button
                     .setTooltip("add new language specific voice")
-                    .setIcon("create-new")
+                    .setIcon("plus")
                     .onClick(async () => {
                         const modal = new LanguageVoiceModal(this.plugin);
 
@@ -157,7 +200,9 @@ export class TTSSettingsTab extends PluginSettingTab {
 
         }
 
-        containerEl.createEl("h3", {text: "Audio settings"});
+		new Setting(containerEl)
+			.setName('Audio')
+			.setHeading();
 
         new Setting(containerEl)
             .setName("Volume")
@@ -226,7 +271,9 @@ export class TTSSettingsTab extends PluginSettingTab {
                 });
         });
 
-        containerEl.createEl('h3', {text: 'Speak'});
+		new Setting(containerEl)
+			.setName("Speak")
+			.setHeading();
 
         new Setting(containerEl)
             .setName("Title")
@@ -305,7 +352,9 @@ export class TTSSettingsTab extends PluginSettingTab {
 					});
 			});
 
-		containerEl.createEl("h2", {text: "Misc"});
+		new Setting(containerEl)
+			.setName('Misc')
+			.setHeading();
 		new Setting(containerEl)
 			.setName("Stop playback when a note is closed/new note is opened")
 			.addToggle(async (toggle) => {
