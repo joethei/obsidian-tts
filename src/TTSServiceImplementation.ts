@@ -1,4 +1,4 @@
-import {MarkdownView, Notice, parseYaml, setIcon, TFile} from "obsidian";
+import {MarkdownView, Notice, parseYaml} from "obsidian";
 import {LanguageVoiceMap} from "./settings";
 import TTSPlugin from "./main";
 import {detect} from "tinyld";
@@ -138,7 +138,6 @@ export class TTSServiceImplementation implements TTSService {
 	}
 
 	getLanguageFromFrontmatter(view: MarkdownView): string {
-		view.
 		let language = "";
 		//check if any language is defined in frontmatter
 		if (!view.getViewData().startsWith("---")) return language;

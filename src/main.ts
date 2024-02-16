@@ -227,4 +227,8 @@ export default class TTSPlugin extends Plugin {
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
 	}
+
+	async onExternalSettingsChange() {
+		await this.loadSettings();
+	}
 }
