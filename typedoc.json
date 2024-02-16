@@ -1,9 +1,0 @@
-{
-	"name": "Text to Speech plugin for Obsidian",
-	"includeVersion": true,
-	"hideGenerator": true,
-	"out": "api",
-	"entryPoints": ["src/services/TTSService.ts"],
-	"tsconfig": "tsconfig.json",
-	"excludeInternal": true
-}
