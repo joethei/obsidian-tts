@@ -2,7 +2,6 @@ import {ButtonComponent, PluginSettingTab, Setting} from "obsidian";
 import {TextInputPrompt} from "./TextInputPrompt";
 import TTSPlugin from "./main";
 import {LanguageVoiceModal} from "./LanguageVoiceModal";
-import {ServiceConfigurationModal} from "./ServiceConfigurationModal";
 
 export interface LanguageVoiceMap {
     language: string;

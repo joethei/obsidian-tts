@@ -249,7 +249,7 @@ export default class TTSPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async onExternalSettingsChange() {
+	async onExternalSettingsChange(): Promise<void> {
 		await this.loadSettings();
 	}
 
@@ -279,7 +279,7 @@ export default class TTSPlugin extends Plugin {
 		await service.sayWithVoice(text, split[1]);
 	}
 
-	prepareText(title: string, text: string) {
+	prepareText(title: string, text: string): string {
 		let content = text;
 		if (!this.settings.speakSyntax) {
 			content = content.replace(/#/g, "");
