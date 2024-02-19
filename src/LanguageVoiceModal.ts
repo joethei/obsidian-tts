@@ -6,6 +6,7 @@ import languages from "@cospired/i18n-iso-languages";
 
 export class LanguageVoiceModal extends Modal {
     plugin: TTSPlugin;
+	id: string;
     language: string;
     voice: string;
 
@@ -16,6 +17,7 @@ export class LanguageVoiceModal extends Modal {
         this.plugin = plugin;
 
         if(map) {
+			this.id = map.id;
             this.language = map.language;
             this.voice = map.voice;
         }
@@ -23,6 +25,8 @@ export class LanguageVoiceModal extends Modal {
 
     async display() : Promise<void> {
         const { contentEl } = this;
+
+		const voices = await this.plugin.serviceManager.getVoices();
 
         contentEl.empty();
 
@@ -55,14 +59,14 @@ export class LanguageVoiceModal extends Modal {
         new Setting(contentEl)
             .setName("Voice")
             .addDropdown(async (dropdown) => {
-                const voices = window.speechSynthesis.getVoices();
                 for (const voice of voices) {
-                    dropdown.addOption(voice.name, voice.name + " - " + languageNames.of(voice.lang));
+                    dropdown.addOption(voice.service + "-" + voice.id, voice.name + " - " + languageNames.of(voice.languages[0]));
                 }
                 dropdown
-                    .setValue(this.voice)
+                    .setValue(this.id)
                     .onChange(async (value) => {
-                        this.voice = value;
+                        this.id = value;
+						this.voice = voices.filter(voice => voice.service + "-" + voice.id === value).first().name;
                     });
             }).addExtraButton(button => {
             button
@@ -72,7 +76,7 @@ export class LanguageVoiceModal extends Modal {
                     const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian");
                     await input.openAndGetValue((async value => {
                         if (value.getValue().length === 0) return;
-                        await this.plugin.ttsService.sayWithVoice(value.getValue(), this.voice);
+                        await this.plugin.serviceManager.sayWithVoice(value.getValue(), this.id);
                     }));
 
 

@@ -56,10 +56,12 @@ export class OpenAI implements TTSService {
 	}
 
 	isPaused(): boolean {
+		if(!this.source) return true;
 		return this.source.context.state === "suspended";
 	}
 
 	isSpeaking(): boolean {
+		if(!this.source) return false;
 		return this.source.context.state === "running";
 	}
 

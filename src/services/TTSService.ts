@@ -1,3 +1,9 @@
+export interface Voice {
+	id: string;
+	name: string;
+	languages: string[];
+}
+
 export interface TTSService {
 
 	id: string;
@@ -32,7 +38,7 @@ export interface TTSService {
 
 	isValid(): boolean;
 
-	getVoices() : Promise<{id: string, name: string, languages: string[]}[]>;
+	getVoices() : Promise<Voice[]>;
 
 	/**
 	 * @internal

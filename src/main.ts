@@ -1,29 +1,26 @@
 import {
-	addIcon,
+	addIcon, MarkdownFileInfo,
 	MarkdownView, Menu, Notice, Platform,
 	Plugin, setIcon, TFile
 } from 'obsidian';
 import {DEFAULT_SETTINGS, LanguageVoiceMap, TTSSettings, TTSSettingsTab} from "./settings";
-import {SpeechSynthesis} from "./services/SpeechSynthesis";
 import {registerAPI} from "@vanakat/plugin-api";
-import {TTSService} from "./services/TTSService";
 import {detect} from "tinyld";
+import {ServiceManager} from "./ServiceManager";
 
 
 export default class TTSPlugin extends Plugin {
-	ttsService: TTSService;
 	settings: TTSSettings;
 	statusbar: HTMLElement;
 
-	services: TTSService[] = [];
+	serviceManager: ServiceManager;
+
 
 	async onload(): Promise<void> {
 		// from https://github.com/phosphor-icons/core
 		addIcon('tts-play-pause', '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256"><rect x="0" y="0" width="256" height="256" fill="none" stroke="none" /><path fill="currentColor" d="M184 64v128a8 8 0 0 1-16 0V64a8 8 0 0 1 16 0Zm40-8a8 8 0 0 0-8 8v128a8 8 0 0 0 16 0V64a8 8 0 0 0-8-8Zm-80 72a15.76 15.76 0 0 1-7.33 13.34l-88.19 56.15A15.91 15.91 0 0 1 24 184.15V71.85a15.91 15.91 0 0 1 24.48-13.34l88.19 56.15A15.76 15.76 0 0 1 144 128Zm-16.18 0L40 72.08v111.85Z"/></svg>');
 
-		this.services.push(new SpeechSynthesis(this));
-		//this.services.push(new OpenAI(this));
-		this.ttsService = this.services[0];
+
 
 		console.log("loading tts plugin");
 
@@ -35,15 +32,19 @@ export default class TTSPlugin extends Plugin {
 
 		await this.loadSettings();
 
+		this.serviceManager = new ServiceManager(this);
+
+		await this.migrateSettings();
+
 		this.addCommand({
 			id: 'start-tts-playback',
 			name: 'Start playback',
 			icon: 'play',
 			checkCallback: (checking: boolean) => {
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (!checking && markdownView)
-					this.play(markdownView);
-				return !!markdownView;
+				const info = this.app.workspace.activeEditor;
+				if (!checking)
+					this.play(info);
+				return !!info;
 			}
 		});
 
@@ -52,9 +53,10 @@ export default class TTSPlugin extends Plugin {
 			name: 'Stop playback',
 			icon: 'stop',
 			checkCallback: (checking: boolean) => {
-				if (!checking)
-					this.ttsService.stop();
-				return this.ttsService.isSpeaking();
+				if (!checking) {
+					this.serviceManager.stop();
+				}
+				return this.serviceManager.isSpeaking();
 
 			}
 		});
@@ -64,9 +66,10 @@ export default class TTSPlugin extends Plugin {
 			name: 'pause playback',
 			icon: 'pause',
 			checkCallback: (checking: boolean) => {
-				if (!checking)
-					this.ttsService.pause();
-				return this.ttsService.isSpeaking();
+				if (!checking) {
+					this.serviceManager.pause();
+				}
+				return this.serviceManager.isSpeaking();
 			}
 		});
 
@@ -76,8 +79,8 @@ export default class TTSPlugin extends Plugin {
 			icon: 'play-audio-glyph',
 			checkCallback: (checking: boolean) => {
 				if (!checking)
-					this.ttsService.resume();
-				return this.ttsService.isPaused();
+					this.serviceManager.resume();
+				return this.serviceManager.isPaused();
 			}
 		});
 
@@ -88,10 +91,10 @@ export default class TTSPlugin extends Plugin {
 			checkCallback: (checking) => {
 				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (!checking && markdownView) {
-					if (this.ttsService.isPaused()) {
-						this.ttsService.resume();
-					} else if (this.ttsService.isSpeaking()) {
-						this.ttsService.pause();
+					if (this.serviceManager.isPaused()) {
+						this.serviceManager.resume();
+					} else if (this.serviceManager.isSpeaking()) {
+						this.serviceManager.pause();
 					} else {
 						this.play(markdownView);
 					}
@@ -101,17 +104,17 @@ export default class TTSPlugin extends Plugin {
 			}
 		});
 
-		this.addCommand({
+		/*this.addCommand({
 			id: 'cursor',
 			name: 'after cursor',
 			editorCallback: (editor, _) => {
 				console.log(editor.getRange(editor.getCursor("from"), {line: editor.lastLine(), ch: editor.getLine(editor.lastLine()).length}));
 			}
-		})
+		})*/
 
 		//clear statusbar text if not speaking
 		this.registerInterval(window.setInterval(() => {
-			if (!this.ttsService.isSpeaking()) {
+			if (!this.serviceManager.isSpeaking()) {
 				this.statusbar.empty();
 				setIcon(this.statusbar, 'audio-file');
 			}
@@ -148,7 +151,7 @@ export default class TTSPlugin extends Plugin {
 
 		this.registerEvent(this.app.workspace.on('layout-change', (() => {
 			if (this.settings.stopPlaybackWhenNoteChanges) {
-				this.ttsService.stop();
+				this.serviceManager.stop();
 			}
 		})));
 
@@ -162,13 +165,13 @@ export default class TTSPlugin extends Plugin {
 			await this.createMenu(event);
 		});
 
-		registerAPI("tts", this.ttsService, this);
+		registerAPI("tts", this.serviceManager, this);
 	}
 
 	async createMenu(event: MouseEvent): Promise<void> {
-		const menu = new Menu(this.app);
+		const menu = new Menu();
 
-		const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		const markdownView = this.app.workspace.activeEditor;
 		if (markdownView) {
 			if (window.speechSynthesis.speaking) {
 				menu.addItem((item) => {
@@ -191,7 +194,7 @@ export default class TTSPlugin extends Plugin {
 					.setIcon("stop-audio-glyph")
 					.setTitle("Stop")
 					.onClick(async () => {
-						this.ttsService.stop();
+						this.serviceManager.stop();
 					});
 			});
 
@@ -202,7 +205,7 @@ export default class TTSPlugin extends Plugin {
 						.setIcon("play-audio-glyph")
 						.setTitle("Resume")
 						.onClick(async () => {
-							this.ttsService.resume();
+							this.serviceManager.resume();
 						});
 				});
 			} else {
@@ -211,7 +214,7 @@ export default class TTSPlugin extends Plugin {
 						.setIcon("paused")
 						.setTitle("Pause")
 						.onClick(async () => {
-							this.ttsService.pause();
+							this.serviceManager.pause();
 						});
 				});
 			}
@@ -228,15 +231,17 @@ export default class TTSPlugin extends Plugin {
 	async loadSettings(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 
-		//migration
+	}
+
+	async migrateSettings(): Promise<void> {
 		let migrate = false;
-		if (!this.settings.defaultVoice.includes('-')) {
+		if (!this.serviceManager.getServices().some(service => this.settings.defaultVoice.includes(service.id))) {
 			this.settings.defaultVoice = 'speechSynthesis-' + this.settings.defaultVoice;
 			migrate = true;
 		}
 		for (const languageVoice of this.settings.languageVoices) {
-			if (!languageVoice.voice.includes('-')) {
-				languageVoice.voice = 'speechSynthesis-' + languageVoice.voice;
+			if (!this.serviceManager.getServices().some(service => languageVoice.voice.includes(service.id))) {
+				languageVoice.id = 'speechSynthesis-' + languageVoice.voice;
 				migrate = true;
 			}
 		}
@@ -270,9 +275,11 @@ export default class TTSPlugin extends Plugin {
 			}
 		}
 		const split = usedVoice.split(/-(.*)/s);
-		const service = this.services.filter(service => service.id === split[0] && service.isConfigured() && service.isValid()).first();
+		const service = this.serviceManager.getServices().filter(service => service.id === split[0] && service.isConfigured() && service.isValid()).first();
+
 		if (service === undefined) {
 			new Notice("TTS: Could not use configured language, please check your settings.\nUsing default voice");
+			await this.serviceManager.sayWithVoice(text, this.settings.defaultVoice);
 			return;
 		}
 
@@ -296,7 +303,6 @@ export default class TTSPlugin extends Plugin {
 			//regex from https://stackoverflow.com/a/37462442/5589264
 			content = content.replace(/(?:__|[*#])|\[(.*?)]\(.*?\)/gm, '$1');
 			content = content.replace(/http[s]:\/\/[^\s]*/gm, '');
-			console.log(content);
 		}
 		if (!this.settings.speakCodeblocks) {
 			content = content.replace(/```[\s\S]*?```/g, '');
@@ -325,24 +331,20 @@ export default class TTSPlugin extends Plugin {
 		return content;
 	}
 
-	async play(view: MarkdownView): Promise<void> {
-		const isPreview = view.getMode() === "preview";
+	async play(info: MarkdownFileInfo): Promise<void> {
 
-		const previewText = view.previewMode.containerEl.innerText;
+		const selectedText = info.editor.getSelection().length > 0 ? info.editor.getSelection() : activeWindow.getSelection().toString();
 
-
-		const selectedText = view.editor.getSelection().length > 0 ? view.editor.getSelection() : window.getSelection().toString();
-		let content = selectedText.length > 0 ? selectedText : view.getViewData();
-		if (isPreview) {
-			content = previewText;
-		}
-		let language = this.getLanguageFromFrontmatter(view);
+		let content = selectedText.length > 0 ? selectedText : await this.app.vault.cachedRead(info.file);
+		let language = this.getLanguageFromFrontmatter(info.file);
 		if (language === "") {
 			language = detect(content);
 		}
 
+		content = this.prepareText(selectedText.length > 0 ? '' : info.file.name, content);
+
 		if (!this.settings.speakFrontmatter) {
-			if (!isPreview) {
+			if (selectedText.length === 0) {
 				content = content.replace("---", "");
 				content = content.substring(content.indexOf("---") + 1);
 			}
@@ -351,9 +353,8 @@ export default class TTSPlugin extends Plugin {
 
 	}
 
-	getLanguageFromFrontmatter(view: MarkdownView): string {
-		if(view.file) {
-			return this.app.metadataCache.getFileCache(view.file).frontmatter?.lang;
-		}
+	getLanguageFromFrontmatter(file: TFile): string {
+		return this.app.metadataCache.getFileCache(file).frontmatter?.lang;
 	}
+
 }

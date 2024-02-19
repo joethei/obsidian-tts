@@ -4,6 +4,7 @@ import TTSPlugin from "./main";
 import {LanguageVoiceModal} from "./LanguageVoiceModal";
 
 export interface LanguageVoiceMap {
+	id: string;
     language: string;
     voice: string;
 }
@@ -58,7 +59,7 @@ export class TTSSettingsTab extends PluginSettingTab {
         this.plugin = plugin;
     }
 
-    display(): void {
+    async display(): Promise<void> {
         const {containerEl} = this;
 
         containerEl.empty();
@@ -67,7 +68,7 @@ export class TTSSettingsTab extends PluginSettingTab {
             .setName("Default voice")
             .addDropdown(async (dropdown) => {
 				const voices = [];
-				const services = this.plugin.services;
+				const services = this.plugin.serviceManager.getServices();
 				for (const service of services) {
 					if (service.isConfigured() && service.isValid()) {
 						for (const voice of await service.getVoices()) {
@@ -100,7 +101,7 @@ export class TTSSettingsTab extends PluginSettingTab {
                     const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian");
                     await input.openAndGetValue((async value => {
                         if (value.getValue().length === 0) return;
-                        await this.plugin.say('', value.getValue());
+                        await this.plugin.serviceManager.sayWithVoice(value.getValue(), this.plugin.settings.defaultVoice);
                     }));
 
 
@@ -140,12 +141,13 @@ export class TTSSettingsTab extends PluginSettingTab {
                         modal.onClose = async () => {
                             if (modal.saved) {
                                 this.plugin.settings.languageVoices.push({
+									id: modal.id,
                                     language: modal.language,
                                     voice: modal.voice
                                 });
                                 await this.plugin.saveSettings();
 
-                                this.display();
+                                await this.display();
                             }
                         };
 
@@ -162,7 +164,7 @@ export class TTSSettingsTab extends PluginSettingTab {
 			const displayNames = new Intl.DisplayNames([languageVoice.language], {type: 'language', fallback: 'none'});
 			const setting = new Setting(voicesDiv);
 			setting.setName(displayNames.of(languageVoice.language) + " -  " + languageVoice.language);
-            setting.setDesc(languageVoice.voice);
+			setting.setDesc(languageVoice.voice);
 
             setting
                 .addExtraButton((b) => {
@@ -174,7 +176,7 @@ export class TTSSettingsTab extends PluginSettingTab {
                             modal.onClose = async () => {
                                 if (modal.saved) {
 									const setting = this.plugin.settings.languageVoices.filter(value => value.language !== modal.language);
-									setting.push({language: modal.language, voice: modal.voice});
+									setting.push({id: modal.id, language: modal.language, voice: modal.voice});
 									this.plugin.settings.languageVoices = setting;
 									await this.plugin.saveSettings();
 
