@@ -2,6 +2,7 @@ import {ButtonComponent, PluginSettingTab, Setting} from "obsidian";
 import {TextInputPrompt} from "./TextInputPrompt";
 import TTSPlugin from "./main";
 import {LanguageVoiceModal} from "./LanguageVoiceModal";
+import { ServiceConfigurationModal } from "./ServiceConfigurationModal";
 
 export interface LanguageVoiceMap {
 	id: string;
@@ -84,7 +85,7 @@ export class TTSSettingsTab extends PluginSettingTab {
 				}
 
                 for (const voice of voices) {
-                    //dropdown.addOption(`${voice.serviceId}-${voice.id}`, `${voice.serviceName}: ${voice.name}`);
+                    dropdown.addOption(`${voice.serviceId}-${voice.id}`, `${voice.serviceName}: ${voice.name}`);
 					dropdown.addOption(`${voice.serviceId}-${voice.id}`, `${voice.name}`);
                 }
                 dropdown
@@ -108,7 +109,7 @@ export class TTSSettingsTab extends PluginSettingTab {
                 });
         });
 
-		/*new Setting(containerEl)
+		new Setting(containerEl)
 			.setName("Services")
 			.setHeading();
 
@@ -122,7 +123,7 @@ export class TTSSettingsTab extends PluginSettingTab {
 					.onClick(() => {
 						new ServiceConfigurationModal(this.plugin).open();
 					});
-			});*/
+			});
 
 		new Setting(containerEl)
 			.setName("Language specific voices")
