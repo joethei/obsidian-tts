@@ -5,6 +5,12 @@ import {Notice} from "obsidian";
 import { OpenAI } from "./services/OpenAI";
 import { Azure } from "./services/Azure";
 
+export interface Voice {
+	service: string;
+	id: string;
+	name: string;
+	languages: string[];
+}
 export class ServiceManager {
 	private readonly plugin: TTSPlugin;
 	private services: TTSService[] = [];
@@ -64,7 +70,7 @@ export class ServiceManager {
 
 	}
 
-	async getVoices() {
+	async getVoices(): Promise<Voice[]> {
 		const voices = [];
 		for (const service of this.services) {
 			for (const voice of await service.getVoices()) {

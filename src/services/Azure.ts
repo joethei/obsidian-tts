@@ -1,9 +1,6 @@
 import {TTSService} from "./TTSService";
 import TTSPlugin from "../main";
-import {requestUrl} from "obsidian";
-import sdk, {
-	SpeechSynthesisOutputFormat,
-} from "microsoft-cognitiveservices-speech-sdk";
+import sdk from "microsoft-cognitiveservices-speech-sdk";
 
 export class Azure implements TTSService {
 	plugin: TTSPlugin;
