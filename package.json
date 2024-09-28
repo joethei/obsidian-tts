@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-tts",
-	"version": "0.5.3",
+	"version": "0.5.5",
 	"description": "Text to speech for Obsidian. Hear your notes.",
 	"main": "main.js",
 	"scripts": {
@@ -15,23 +15,25 @@
 	"dependencies": {
 		"@cospired/i18n-iso-languages": "^3.1.1",
 		"@types/node": "^16.11.6",
+		"@vanakat/plugin-api": "0.1.0",
 		"builtin-modules": "^3.2.0",
+		"microsoft-cognitiveservices-speech-sdk": "^1.40.0",
 		"obsidian": "1.4.11",
-		"tslib": "2.3.1",
-		"typescript": "4.4.4",
+		"soundtouchjs": "^0.1.30",
 		"tinyld": "1.2.3",
-		"@vanakat/plugin-api": "0.1.0"
+		"tslib": "2.3.1",
+		"typescript": "4.4.4"
 	},
 	"devDependencies": {
+		"@microsoft/tsdoc": "0.14.1",
 		"@typescript-eslint/eslint-plugin": "^4.33.0",
 		"@typescript-eslint/parser": "^4.33.0",
 		"esbuild": "0.13.12",
 		"eslint": "7.32.0",
-		"@microsoft/tsdoc": "0.14.1",
 		"eslint-plugin-tsdoc": "0.2.16",
 		"typedoc": "0.22.18"
 	},
 	"overrides": {
-		"obsidian" : "$obsidian"
+		"obsidian": "$obsidian"
 	}
 }

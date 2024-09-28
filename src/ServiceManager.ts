@@ -3,6 +3,7 @@ import TTSPlugin from "./main";
 import {SpeechSynthesis} from "./services/SpeechSynthesis";
 import {Notice} from "obsidian";
 import { OpenAI } from "./services/OpenAI";
+import { Azure } from "./services/Azure";
 
 export class ServiceManager {
 	private readonly plugin: TTSPlugin;
@@ -12,6 +13,7 @@ export class ServiceManager {
 		this.plugin = plugin;
 		this.services.push(new SpeechSynthesis(this.plugin));
 		this.services.push(new OpenAI(this.plugin));
+		this.services.push(new Azure(this.plugin));
 	}
 
 	public getServices(): TTSService[] {

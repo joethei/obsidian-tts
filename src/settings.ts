@@ -10,8 +10,14 @@ export interface LanguageVoiceMap {
     voice: string;
 }
 
+export interface TTSDefaultVoices {
+	[service: string]: string;
+}
+
 export interface TTSSettings {
     defaultVoice: string,
+	defaultVoices: TTSDefaultVoices;
+	defaultService: string,
     pitch: number;
     rate: number;
     volume: number;
@@ -27,12 +33,21 @@ export interface TTSSettings {
 	services: {
 		openai: {
 			key: string;
+		},
+		azure: {
+			key: string;
+			region: string;
+			role: string;
+			style: string;
+			intensity: number;
 		}
 	}
 }
 
 export const DEFAULT_SETTINGS: TTSSettings = {
     defaultVoice: "",
+	defaultVoices: {},
+	defaultService: "speechSynthesis",
     pitch: 1,
     rate: 1,
     volume: 1,
@@ -48,6 +63,13 @@ export const DEFAULT_SETTINGS: TTSSettings = {
 	services: {
 		openai: {
 			key: '',
+		},
+		azure: {
+			key: '',
+			region: '',
+			role: 'OlderAdultFemale',
+			style: 'chat',
+			intensity: 1
 		}
 	}
 }
@@ -85,12 +107,15 @@ export class TTSSettingsTab extends PluginSettingTab {
 				}
 
                 for (const voice of voices) {
-                    dropdown.addOption(`${voice.serviceId}-${voice.id}`, `${voice.serviceName}: ${voice.name}`);
-					dropdown.addOption(`${voice.serviceId}-${voice.id}`, `${voice.name}`);
+					if (voice.serviceId === this.plugin.settings.defaultService) {
+						dropdown.addOption(`${voice.serviceId}-${voice.id}`, `${voice.name}`);
+					}
                 }
                 dropdown
                     .setValue(this.plugin.settings.defaultVoice)
                     .onChange(async (value) => {
+                        const serviceKey = `${value.split('-')[0]}Voice`;
+                        this.plugin.settings.defaultVoices[serviceKey] = value;
                         this.plugin.settings.defaultVoice = value;
                         await this.plugin.saveSettings();
                     });
@@ -124,6 +149,47 @@ export class TTSSettingsTab extends PluginSettingTab {
 						new ServiceConfigurationModal(this.plugin).open();
 					});
 			});
+		
+		const servicesEl = containerEl.createDiv("settings-banner", (banner) => {
+			banner.createEl("h4", {
+				cls: "setting-item-name",
+				text: "Configured services",
+			});
+		});
+
+		for (const service of this.plugin.serviceManager.getServices()) {
+			if (service.isConfigured() && service.isValid() && service.id !== "speechSynthesis") {
+				const setting = new Setting(servicesEl);
+				setting.setName(service.name);
+				setting.addExtraButton((b) => {
+					b.setIcon("pencil")
+						.setTooltip("Edit")
+						.onClick(() => {
+							new ServiceConfigurationModal(this.plugin, service.id).open();
+						});
+				});
+			}
+		}
+		
+		new Setting(containerEl)
+			.setName("Active service")
+			.setDesc("Select voice service to use")
+            .addDropdown(async (dropdown) => {
+				const services = this.plugin.serviceManager.getServices();
+				for (const service of services) {
+					if (service.isConfigured() && service.isValid()) {
+						dropdown.addOption(service.id, service.name);
+					}
+				}
+                dropdown
+                    .setValue(this.plugin.settings.defaultService)
+                    .onChange(async (value) => {
+                        this.plugin.settings.defaultService = value;
+						this.plugin.settings.defaultVoice = this.plugin.settings.defaultVoices[`${value}Voice`];
+                        await this.plugin.saveSettings();
+						this.display();
+                    });
+            });
 
 		new Setting(containerEl)
 			.setName("Language specific voices")

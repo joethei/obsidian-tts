@@ -1,6 +1,7 @@
 import {TTSService} from "./TTSService";
 import TTSPlugin from "../main";
 import {requestUrl} from "obsidian";
+import { PitchShifter } from 'soundtouchjs';
 
 export class OpenAI implements TTSService {
 	plugin: TTSPlugin;
@@ -97,8 +98,12 @@ export class OpenAI implements TTSService {
 
 		const context = new AudioContext();
 		const buffer = await context.decodeAudioData(audioFile.arrayBuffer);
-		this.source = context.createBufferSource();
-		this.source.buffer = buffer;
+
+		const shifter = new PitchShifter(context, buffer, 1024);
+		shifter.tempo = this.plugin.settings.rate;
+		shifter.pitch = this.plugin.settings.pitch;
+
+		this.source = shifter;
 		this.source.connect(context.destination);
 		this.source.start();
 	}
