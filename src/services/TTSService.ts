@@ -8,6 +8,7 @@ export interface TTSService {
 
 	id: string;
 	name: string;
+	progress: number;
 
 	/**
 	 * @public

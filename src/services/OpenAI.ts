@@ -1,19 +1,15 @@
 import {TTSService} from "./TTSService";
 import TTSPlugin from "../main";
 import {requestUrl} from "obsidian";
-// @ts-ignore
-import registerSoundtouchWorklet from "audio-worklet:../soundtouch-worklet";
-import createSoundTouchNode from '@soundtouchjs/audio-worklet';
+import AudioPlayer from "./AudioPlayer";
 
-export class OpenAI implements TTSService {
+export class OpenAI extends AudioPlayer implements TTSService {
 	plugin: TTSPlugin;
 	id = "openai";
 	name = "OpenAI";
 
-	source: AudioBufferSourceNode | null = null;
-	currentTime = 0;
-
 	constructor(plugin: TTSPlugin) {
+		super(plugin);
 		this.plugin = plugin;
 	}
 
@@ -59,13 +55,11 @@ export class OpenAI implements TTSService {
 	}
 
 	isPaused(): boolean {
-		if(!this.source) return true;
-		return this.source.context.state === "suspended";
+		return this.paused;
 	}
 
 	isSpeaking(): boolean {
-		if(!this.source) return false;
-		return this.source.context.state === "running";
+		return this.isPlaying;
 	}
 
 	isValid(): boolean {
@@ -73,12 +67,11 @@ export class OpenAI implements TTSService {
 	}
 
 	pause(): void {
-		this.currentTime = this.source.context.currentTime;
-		this.source.stop();
+		this.pause();
 	}
 
 	resume(): void {
-		this.source.start(this.currentTime);
+		this.play();
 	}
 
 	async sayWithVoice(text: string, voice: string) : Promise<void> {
@@ -97,32 +90,15 @@ export class OpenAI implements TTSService {
 			})
 		});
 
-
-		const context = new AudioContext();
-		// const buffer = await context.decodeAudioData(audioFile.arrayBuffer);
-
-		await registerSoundtouchWorklet(context);
-		
-		// const soundtouchWorkletNode = new AudioWorkletNode(context, 'soundtouch-worklet');
-
-		const soundtouch = createSoundTouchNode(context, AudioWorkletNode, audioFile.arrayBuffer);
-
-		soundtouch.on('initialized', () => {
-			console.log('SoundTouch initialized');
-			soundtouch.tempo = this.plugin.settings.rate;
-			soundtouch.pitch = this.plugin.settings.pitch;
-
-			const bufferNode = soundtouch.connectToBuffer(); // AudioBuffer goes to SoundTouchNode
-			const gainNode = context.createGain();
-			soundtouch.connect(gainNode); // SoundTouch goes to the GainNode
-			gainNode.connect(context.destination); // GainNode goes to the AudioDestinationNode
-
-			soundtouch.play();
-		});
+		this.setupSoundtouch(audioFile.arrayBuffer);
 	}
 
 	stop(): void {
-		this.source.stop();
+		this.stop();
+	}
+
+	get progress(): number {
+		return this.soundtouch.percentagePlayed;
 	}
 
 }
