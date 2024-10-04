@@ -4,6 +4,8 @@ import commonjs from '@rollup/plugin-commonjs';
 import terser from "@rollup/plugin-terser";
 import json from '@rollup/plugin-json';
 import webWorkerLoader from '@colingm/rollup-plugin-web-worker-loader';
+import del from 'rollup-plugin-delete';
+import copy from 'rollup-plugin-copy';
 
 export default {
   input: 'src/main.ts',
@@ -20,7 +22,18 @@ export default {
     commonjs(),
     // terser(),
 	json(),
-	webWorkerLoader({ targetPlatform: 'browser' })
+	webWorkerLoader({ targetPlatform: 'browser' }),
+	copy({
+		targets: [{
+			src: 'node_modules/@soundtouchjs/audio-worklet/dist/soundtouch-worklet.js',
+			dest: 'src'
+		}],
+		hook: 'buildStart'
+	}),
+	del({
+		targets: 'src/soundtouch-worklet.js',
+		hook: 'buildEnd'
+	})
   ],
   onwarn: function(warning, warner) {
     if (warning.code === 'CIRCULAR_DEPENDENCY'){

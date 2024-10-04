@@ -2,7 +2,7 @@ import {TTSService} from "./TTSService";
 import TTSPlugin from "../main";
 import {requestUrl} from "obsidian";
 // @ts-ignore
-import registerSoundtouchWorklet from "audio-worklet:../soundtouch/soundtouch-worklet";
+import registerSoundtouchWorklet from "audio-worklet:../soundtouch-worklet";
 import createSoundTouchNode from '@soundtouchjs/audio-worklet';
 
 export class OpenAI implements TTSService {
