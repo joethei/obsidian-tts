@@ -1,11 +1,10 @@
-import typescript from '@rollup/plugin-typescript';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
-import terser from "@rollup/plugin-terser";
 import json from '@rollup/plugin-json';
 import webWorkerLoader from '@colingm/rollup-plugin-web-worker-loader';
 import del from 'rollup-plugin-delete';
 import copy from 'rollup-plugin-copy';
+import esbuild from 'rollup-plugin-esbuild'
 
 const banner =
     `/*
@@ -26,10 +25,9 @@ export default {
   },
   external: ['obsidian', 'electron'],
   plugins: [
-    typescript({ tsconfig: './tsconfig.json', exclude: ['**/*.d.ts'] }),
     nodeResolve({browser: true}),
     commonjs(),
-    // terser(),
+	esbuild({ target: 'es2018', minify: true }),
 	json(),
 	webWorkerLoader({ targetPlatform: 'browser' }),
 	copy({
