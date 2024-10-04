@@ -8,6 +8,7 @@ import {registerAPI} from "@vanakat/plugin-api";
 import {detect} from "tinyld";
 import {ServiceManager} from "./ServiceManager";
 import { cleanText } from './utils';
+import 'regenerator-runtime/runtime';
 
 
 export default class TTSPlugin extends Plugin {

@@ -3,6 +3,7 @@ import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import terser from "@rollup/plugin-terser";
 import json from '@rollup/plugin-json';
+import webWorkerLoader from '@colingm/rollup-plugin-web-worker-loader';
 
 export default {
   input: 'src/main.ts',
@@ -17,8 +18,9 @@ export default {
     typescript({ tsconfig: './tsconfig.json', exclude: ['**/*.d.ts'] }),
     nodeResolve({browser: true}),
     commonjs(),
-    terser(),
-	json()
+    // terser(),
+	json(),
+	webWorkerLoader({ targetPlatform: 'browser' })
   ],
   onwarn: function(warning, warner) {
     if (warning.code === 'CIRCULAR_DEPENDENCY'){

@@ -1,14 +1,16 @@
 import {TTSService} from "./TTSService";
 import TTSPlugin from "../main";
 import {requestUrl} from "obsidian";
-import { PitchShifter } from 'soundtouchjs';
+// @ts-ignore
+import registerSoundtouchWorklet from "audio-worklet:../soundtouch/soundtouch-worklet";
+import createSoundTouchNode from '@soundtouchjs/audio-worklet';
 
 export class OpenAI implements TTSService {
 	plugin: TTSPlugin;
 	id = "openai";
 	name = "OpenAI";
 
-	source: AudioBufferSourceNode;
+	source: AudioBufferSourceNode | null = null;
 	currentTime = 0;
 
 	constructor(plugin: TTSPlugin) {
@@ -97,15 +99,26 @@ export class OpenAI implements TTSService {
 
 
 		const context = new AudioContext();
-		const buffer = await context.decodeAudioData(audioFile.arrayBuffer);
+		// const buffer = await context.decodeAudioData(audioFile.arrayBuffer);
 
-		const shifter = new PitchShifter(context, buffer, 1024);
-		shifter.tempo = this.plugin.settings.rate;
-		shifter.pitch = this.plugin.settings.pitch;
+		await registerSoundtouchWorklet(context);
+		
+		// const soundtouchWorkletNode = new AudioWorkletNode(context, 'soundtouch-worklet');
 
-		this.source = shifter;
-		this.source.connect(context.destination);
-		this.source.start();
+		const soundtouch = createSoundTouchNode(context, AudioWorkletNode, audioFile.arrayBuffer);
+
+		soundtouch.on('initialized', () => {
+			console.log('SoundTouch initialized');
+			soundtouch.tempo = this.plugin.settings.rate;
+			soundtouch.pitch = this.plugin.settings.pitch;
+
+			const bufferNode = soundtouch.connectToBuffer(); // AudioBuffer goes to SoundTouchNode
+			const gainNode = context.createGain();
+			soundtouch.connect(gainNode); // SoundTouch goes to the GainNode
+			gainNode.connect(context.destination); // GainNode goes to the AudioDestinationNode
+
+			soundtouch.play();
+		});
 	}
 
 	stop(): void {

@@ -20,6 +20,7 @@
 		"builtin-modules": "^3.2.0",
 		"microsoft-cognitiveservices-speech-sdk": "^1.40.0",
 		"obsidian": "1.4.11",
+		"regenerator-runtime": "^0.14.1",
 		"soundtouchjs": "^0.1.30",
 		"tinyld": "1.2.3",
 		"tslib": "2.3.1",
