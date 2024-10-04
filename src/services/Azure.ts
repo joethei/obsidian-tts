@@ -1,14 +1,21 @@
 import {TTSService} from "./TTSService";
 import TTSPlugin from "../main";
-import sdk from "microsoft-cognitiveservices-speech-sdk";
+import {
+	SpeakerAudioDestination,
+	SpeechConfig,
+	AudioConfig,
+	SpeechSynthesizer,
+	ResultReason
+} from "microsoft-cognitiveservices-speech-sdk";
 
 export class Azure implements TTSService {
 	plugin: TTSPlugin;
 	id = "azure";
 	name = "Azure";
+	_isPlaying = false;
+	_duration = 0;
 
-	source: AudioBufferSourceNode;
-	currentTime = 0;
+	source: SpeakerAudioDestination | null = null;
 
 	constructor(plugin: TTSPlugin) {
 		this.plugin = plugin;
@@ -152,13 +159,11 @@ export class Azure implements TTSService {
 	}
 
 	isPaused(): boolean {
-		if(!this.source) return true;
-		return this.source.context.state === "suspended";
+		return this.source && !this._isPlaying;
 	}
 
 	isSpeaking(): boolean {
-		if(!this.source) return false;
-		return this.source.context.state === "running";
+		return this.source ? true : false;
 	}
 
 	isValid(): boolean {
@@ -167,24 +172,25 @@ export class Azure implements TTSService {
 	}
 
 	pause(): void {
-		this.currentTime = this.source.context.currentTime;
-		this.source.stop();
+		this._isPlaying = false;
+		this.source.pause();
 	}
 
 	resume(): void {
-		this.source.start(this.currentTime);
+		this._isPlaying = true;
+		this.source.resume();
 	}
 
 	async sayWithVoice(text: string, voice: string) : Promise<void> {
-		const speechConfig = sdk.SpeechConfig.fromSubscription(
+		const speechConfig = SpeechConfig.fromSubscription(
 			this.plugin.settings.services.azure.key,
 			this.plugin.settings.services.azure.region
 		);
 		speechConfig.speechSynthesisVoiceName = voice;
-		// speechConfig.speechSynthesisOutputFormat =
-		// 	audioFormat as unknown as SpeechSynthesisOutputFormat;
-		// const audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
-		const synthesizer = new sdk.SpeechSynthesizer(speechConfig);
+		this.source = new SpeakerAudioDestination();
+		// this.source = new AzurePlayer();
+		const audioConfig = AudioConfig.fromSpeakerOutput(this.source);
+		const synthesizer = new SpeechSynthesizer(speechConfig, audioConfig);
 
 		const regionCode = voice.split('-').slice(0, 2).join('-');
 		const {role, style, intensity} = this.plugin.settings.services.azure;
@@ -207,21 +213,16 @@ export class Azure implements TTSService {
 			synthesizer.speakSsmlAsync(
 				ssmlContent,
 				result => {
-					if (result) 
-						synthesizer.close();
 					if (
 						result.reason ===
-						sdk.ResultReason.SynthesizingAudioCompleted
+						ResultReason.SynthesizingAudioCompleted
 					) {
-						const audio = result.audioData;
-						const context = new AudioContext();
-						context.decodeAudioData(audio, buffer => {
-							this.source = context.createBufferSource();
-							this.source.buffer = buffer;
-							this.source.connect(context.destination);
-							this.source.start();
-						});
-						return audio;
+						synthesizer.close();
+						this._duration = result.audioDuration / 10000000;
+						this._isPlaying = true;
+						this.source.onAudioEnd = () => {
+							this._isPlaying = false;
+						};
 					}
 				},
 				function (e) {
@@ -232,7 +233,22 @@ export class Azure implements TTSService {
 	}
 
 	stop(): void {
-		this.source.stop();
+		this._isPlaying = false;
+		this.source.pause();
+		this.source.close();
+		this.source = null;
 	}
 
+	get progress(): number {
+		if (!this.source) return 0;
+		const currentTime = this.source.internalAudio.currentTime;
+		const progress = currentTime / this._duration;
+		return Math.max(0, Math.min(100, progress * 100));
+	}
+
+	seek(progress: number): void {
+		if (!this.source) return;
+		const currentTime = this._duration * (progress / 100);
+		this.source.internalAudio.currentTime = currentTime;
+	}
 }

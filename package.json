@@ -4,8 +4,8 @@
 	"description": "Text to speech for Obsidian. Hear your notes.",
 	"main": "main.js",
 	"scripts": {
-		"dev": "node esbuild.config.mjs",
-		"build": "node esbuild.config.mjs production",
+		"dev": "rollup --config rollup.config.dev.mjs -w",
+		"build": "rollup --config rollup.config.build.mjs",
 		"lint": "eslint . --ext .ts",
 		"docs": "typedoc"
 	},
@@ -13,7 +13,8 @@
 	"author": "joethei",
 	"license": "GPL-3.0",
 	"dependencies": {
-		"@cospired/i18n-iso-languages": "^3.1.1",
+		"@cospired/i18n-iso-languages": "^4.2.0",
+		"@soundtouchjs/audio-worklet": "^0.1.17",
 		"@types/node": "^16.11.6",
 		"@vanakat/plugin-api": "0.1.0",
 		"builtin-modules": "^3.2.0",
@@ -25,15 +26,24 @@
 		"typescript": "4.4.4"
 	},
 	"devDependencies": {
+		"@colingm/rollup-plugin-web-worker-loader": "^1.6.1",
 		"@microsoft/tsdoc": "0.14.1",
+		"@rollup/plugin-commonjs": "^28.0.0",
+		"@rollup/plugin-json": "^6.1.0",
+		"@rollup/plugin-node-resolve": "^15.3.0",
+		"@rollup/plugin-terser": "^0.4.4",
+		"@rollup/plugin-typescript": "^12.1.0",
 		"@typescript-eslint/eslint-plugin": "^4.33.0",
 		"@typescript-eslint/parser": "^4.33.0",
-		"esbuild": "0.13.12",
 		"eslint": "7.32.0",
 		"eslint-plugin-tsdoc": "0.2.16",
+		"rollup": "^4.24.0",
 		"typedoc": "0.22.18"
 	},
 	"overrides": {
-		"obsidian": "$obsidian"
+		"obsidian": "$obsidian",
+		"@colingm/rollup-plugin-web-worker-loader": {
+			"rollup": "$rollup"
+		}
 	}
 }

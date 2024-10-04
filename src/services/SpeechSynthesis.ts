@@ -6,9 +6,18 @@ export class SpeechSynthesis implements TTSService {
 	plugin: TTSPlugin;
 	id = 'speechSynthesis';
 	name = 'Speech Synthesis';
+	currentTime = 0;
 
 	constructor(plugin: TTSPlugin) {
 		this.plugin = plugin;
+	}
+
+	get progress(): number {
+		return this.currentTime;
+	}
+
+	seek(time: number): void {
+		this.currentTime = time;
 	}
 
 	stop(): void {

@@ -7,14 +7,25 @@ import {DEFAULT_SETTINGS, LanguageVoiceMap, TTSSettings, TTSSettingsTab} from ".
 import {registerAPI} from "@vanakat/plugin-api";
 import {detect} from "tinyld";
 import {ServiceManager} from "./ServiceManager";
+import { cleanText } from './utils';
 
 
 export default class TTSPlugin extends Plugin {
 	settings: TTSSettings;
 	statusbar: HTMLElement;
+	menuVisible = false;
+	statusbarIntervalId: number;
+	seekbar: HTMLElement;
+	playButton: HTMLElement;
+	pauseButton: HTMLElement;
+	stopButton: HTMLElement;
+
 
 	serviceManager: ServiceManager;
 
+	get isPaused(): boolean {
+		return this.serviceManager.isPaused();
+	}
 
 	async onload(): Promise<void> {
 		// from https://github.com/phosphor-icons/core
@@ -120,8 +131,8 @@ export default class TTSPlugin extends Plugin {
 			}
 		}, 1000 * 10));
 
-		this.addRibbonIcon("audio-file", "Text to Speech", async (event) => {
-			await this.createMenu(event);
+		this.addRibbonIcon("audio-file", "Text to Speech", async () => {
+			await this.createMenu();
 		});
 
 		this.registerEvent(this.app.workspace.on('editor-menu', ((menu, _, markdownView) => {
@@ -161,26 +172,65 @@ export default class TTSPlugin extends Plugin {
 		this.statusbar.classList.add("mod-clickable");
 		this.statusbar.setAttribute("aria-label", "Text to Speech");
 		this.statusbar.setAttribute("aria-label-position", "bottom");
-		this.statusbar.onClickEvent(async (event) => {
-			await this.createMenu(event);
+		this.statusbar.onClickEvent(async () => {
+			if (this.menuVisible) {
+				this.removeMenu();
+				return;
+			}
+
+			this.menuVisible = true;
+			await this.createMenu();
 		});
 
 		registerAPI("tts", this.serviceManager, this);
 	}
 
-	async createMenu(event: MouseEvent): Promise<void> {
-		const menu = new Menu();
+	removeMenu(): void {
+		this.menuVisible = false;
+		clearInterval(this.statusbarIntervalId);
+		this.seekbar.remove();
+		this.playButton.remove();
+		this.pauseButton.remove();
+		this.stopButton.remove();
+	}
+
+	async createMenu(): Promise<void> {
+		const getSeekbarBackgroundStyle = (value: number): string => {
+			return 'linear-gradient(to right, var(--interactive-accent) 0%, var(--interactive-accent) ' + value + '%, #fff ' + value + '%, white 100%)';
+		}
+		const updateSeekbar = () => {
+			const value = this.serviceManager.progress;
+			this.seekbar.querySelector('input').value = value.toString();
+			this.seekbar.querySelector('input').style.background = getSeekbarBackgroundStyle(value);
+		};
+		const createPlayButton = () => {
+			this.playButton = this.addStatusBarItem();
+			setIcon(this.playButton, 'play-audio-glyph');
+			this.playButton.onClickEvent(() => {
+				this.serviceManager.resume();
+				this.statusbarIntervalId = this.registerInterval(window.setInterval(updateSeekbar, 1000));
+				this.playButton.remove();
+				createPauseButton();
+			});
+		}
+		const createPauseButton = () => {
+			this.pauseButton = this.addStatusBarItem();
+			setIcon(this.pauseButton, 'pause');
+			this.pauseButton.onClickEvent(() => {
+				clearInterval(this.statusbarIntervalId);
+				this.serviceManager.pause();
+				this.pauseButton.remove();
+				createPlayButton();
+			});
+		}
 
 		const markdownView = this.app.workspace.activeEditor;
 		if (markdownView) {
-			if (window.speechSynthesis.speaking) {
-				menu.addItem((item) => {
-					item
-						.setIcon("play-audio-glyph")
-						.setTitle("Add to playback queue")
-						.onClick((async () => {
-							await this.play(markdownView);
-						}));
+			if (this.serviceManager.isSpeaking()) {
+				this.playButton = this.addStatusBarItem()
+				setIcon(this.playButton, 'play-audio-glyph');
+				this.playButton.onClickEvent(async () => {
+					await this.play(markdownView);
 				});
 			} else {
 				await this.play(markdownView);
@@ -188,40 +238,51 @@ export default class TTSPlugin extends Plugin {
 			}
 		}
 
-		if (window.speechSynthesis.speaking) {
-			menu.addItem((item) => {
-				item
-					.setIcon("stop-audio-glyph")
-					.setTitle("Stop")
-					.onClick(async () => {
-						this.serviceManager.stop();
-					});
+		if (this.serviceManager.isSpeaking()) {
+			// Seekbar
+			const curProgress = this.serviceManager.progress ? this.serviceManager.progress : 0;
+			this.seekbar = this.addStatusBarItem();
+			const slider = this.seekbar.createEl('input', {type: 'range', attr: {min: '0', max: '100', value: curProgress.toString(), step: '1'}});
+			slider.style.background = getSeekbarBackgroundStyle(curProgress);
+			slider.style.border = "solid 1px var(--interactive-accent)";
+			slider.style.borderRadius = "8px";
+			slider.style.height = "7px";
+			slider.style.width = "200px";
+			slider.style.outline = "none";
+			slider.style.transition = "background 450ms ease-in";
+			slider.oninput = function(this: HTMLInputElement) {
+				const value = parseInt(this.value);
+				this.style.background = getSeekbarBackgroundStyle(value);
+			};
+
+			this.statusbarIntervalId = this.registerInterval(window.setInterval(updateSeekbar, 1000));
+
+			this.seekbar.querySelector('input').onmousedown = () => {
+				if (!this.isPaused) {
+					clearInterval(this.statusbarIntervalId);
+				}
+			};
+			this.seekbar.querySelector('input').onchange = (e) => {
+				this.serviceManager.seek(parseInt((e.target as HTMLInputElement).value));
+				if (!this.isPaused) {
+					this.statusbarIntervalId = this.registerInterval(window.setInterval(updateSeekbar, 1000));
+				}
+			};
+
+			// Stop button
+			this.stopButton = this.addStatusBarItem();
+			setIcon(this.stopButton, 'stop-audio-glyph');
+			this.stopButton.onClickEvent(() => {
+				this.serviceManager.stop();
+				this.removeMenu();
 			});
 
-
-			if (window.speechSynthesis.paused) {
-				menu.addItem((item) => {
-					item
-						.setIcon("play-audio-glyph")
-						.setTitle("Resume")
-						.onClick(async () => {
-							this.serviceManager.resume();
-						});
-				});
+			if (this.serviceManager.isPaused()) {
+				createPlayButton();
 			} else {
-				menu.addItem((item) => {
-					item
-						.setIcon("paused")
-						.setTitle("Pause")
-						.onClick(async () => {
-							this.serviceManager.pause();
-						});
-				});
+				createPauseButton();
 			}
 		}
-
-
-		menu.showAtPosition({x: event.x, y: event.y});
 	}
 
 	async onunload(): Promise<void> {
@@ -279,11 +340,11 @@ export default class TTSPlugin extends Plugin {
 
 		if (service === undefined) {
 			new Notice("TTS: Could not use configured language, please check your settings.\nUsing default voice");
-			await this.serviceManager.sayWithVoice(text, this.settings.defaultVoice);
+			await this.serviceManager.sayWithVoice(cleanText(text), this.settings.defaultVoice);
 			return;
 		}
 
-		await service.sayWithVoice(text, split[1]);
+		await service.sayWithVoice(cleanText(text), split[1]);
 	}
 
 	prepareText(title: string, text: string): string {
