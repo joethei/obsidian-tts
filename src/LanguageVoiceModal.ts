@@ -1,5 +1,5 @@
 import {Modal, Setting} from "obsidian";
-import {LanguageVoiceMap} from "./settings";
+import { LanguageVoiceMap } from "./DEFAULT_SETTINGS";
 import {TextInputPrompt} from "./TextInputPrompt";
 import TTSPlugin from "./main";
 import languages from "@cospired/i18n-iso-languages";

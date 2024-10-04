@@ -1,5 +1,75 @@
 import { SpeechSynthesisOutputFormat } from "microsoft-cognitiveservices-speech-sdk";
 
+export interface LanguageVoiceMap {
+	id: string;
+    language: string;
+    voice: string;
+}
+
+export interface TTSDefaultVoices {
+	[service: string]: string;
+}
+
+export interface TTSSettings {
+    defaultVoice: string,
+	defaultVoices: TTSDefaultVoices;
+	defaultService: string,
+    pitch: number;
+    rate: number;
+    volume: number;
+    speakLinks: boolean;
+    speakFrontmatter: boolean;
+    speakSyntax: boolean;
+	speakCodeblocks: boolean;
+    speakTitle: boolean;
+	speakEmoji: boolean;
+	speakComments: boolean;
+    languageVoices: LanguageVoiceMap[];
+	stopPlaybackWhenNoteChanges: boolean;
+	services: {
+		openai: {
+			key: string;
+		},
+		azure: {
+			key: string;
+			region: string;
+			role: string;
+			style: string;
+			intensity: number;
+		}
+	}
+}
+
+export const DEFAULT_SETTINGS: TTSSettings = {
+    defaultVoice: "",
+	defaultVoices: {},
+	defaultService: "speechSynthesis",
+    pitch: 1,
+    rate: 1,
+    volume: 1,
+    speakLinks: false,
+    speakFrontmatter: false,
+    speakSyntax: false,
+    speakTitle: true,
+	speakCodeblocks: false,
+	speakEmoji: false,
+	speakComments: false,
+    languageVoices: [],
+	stopPlaybackWhenNoteChanges: false,
+	services: {
+		openai: {
+			key: '',
+		},
+		azure: {
+			key: '',
+			region: '',
+			role: 'OlderAdultFemale',
+			style: 'chat',
+			intensity: 1
+		}
+	}
+}
+
 export const VOICE_FORMAT_NAMES = [
 	"raw-8khz-8bit-mono-mulaw(.wav)",
 	"riff-16khz-16kbps-mono-siren(.wav)",

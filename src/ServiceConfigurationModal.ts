@@ -1,7 +1,6 @@
 import {Modal, Setting} from "obsidian";
 import TTSPlugin from "./main";
-import {DEFAULT_SETTINGS} from "./settings";
-import {STYLE_OPTIONS, ROLE_OPTIONS, SERVICE_OPTIONS} from "./services/constants";
+import {DEFAULT_SETTINGS, STYLE_OPTIONS, ROLE_OPTIONS, SERVICE_OPTIONS} from "./constants";
 
 export class ServiceConfigurationModal extends Modal {
 	plugin: TTSPlugin;

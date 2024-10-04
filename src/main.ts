@@ -1,9 +1,10 @@
 import {
 	addIcon, MarkdownFileInfo,
-	MarkdownView, Menu, Notice, Platform,
+	MarkdownView, Notice, Platform,
 	Plugin, setIcon, TFile
 } from 'obsidian';
-import {DEFAULT_SETTINGS, LanguageVoiceMap, TTSSettings, TTSSettingsTab} from "./settings";
+import {TTSSettingsTab} from "./settings";
+import { DEFAULT_SETTINGS, LanguageVoiceMap, TTSSettings } from "./constants";
 import {registerAPI} from "@vanakat/plugin-api";
 import {detect} from "tinyld";
 import {ServiceManager} from "./ServiceManager";
