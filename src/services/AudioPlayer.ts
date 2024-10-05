@@ -2,6 +2,7 @@
 import registerSoundtouchWorklet from "audio-worklet:../soundtouch-worklet";
 import createSoundTouchNode from '@soundtouchjs/audio-worklet';
 import TTSPlugin from "src/main";
+import { resetStatusbar } from "../utils";
 
 interface PlayEventDetail {
     timePlayed: number, // float representing the current 'playHead' position in seconds
@@ -32,7 +33,6 @@ export default class AudioPlayer {
 	audioCtx: AudioContext;
 	gainNode: GainNode;
 	soundtouch: Soundtouch;
-	buffer: ArrayBuffer;
 	bufferNode: AudioBufferSourceNode;
 	paused = false;
 
@@ -57,13 +57,11 @@ export default class AudioPlayer {
 		this.play();
 	}
 
-	protected setupSoundtouch(buffer: ArrayBuffer): void {
+	protected async setupSoundtouch(buffer: ArrayBuffer): Promise<void> {
 		if (this.soundtouch) {
-			this.soundtouch.stop();
-			this.soundtouch.off();
+			await this.stop();
 		}
-		this.buffer = buffer;
-		this.soundtouch = createSoundTouchNode(this.audioCtx, AudioWorkletNode, this.buffer);
+		this.soundtouch = createSoundTouchNode(this.audioCtx, AudioWorkletNode, buffer);
 		this.soundtouch.on('initialized', () => this.onInitialized());
 	}
 
@@ -85,10 +83,11 @@ export default class AudioPlayer {
 		return true;
 	}
 
-	protected stop(): void {
+	protected async stop(): Promise<void> {
 		if (!this.disconnect()) return;
 		this.soundtouch.off();
-		this.soundtouch.stop();
+		await this.soundtouch.stop();
+		resetStatusbar(this.plugin.statusbar);
 	}
 
 	protected pause(): void {
