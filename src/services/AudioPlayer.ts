@@ -14,12 +14,14 @@ interface Soundtouch {
 	tempo: number;
 	pitch: number;
 	percentagePlayed: number;
+	playing: boolean;
+	ready: boolean;
 	connectToBuffer(): AudioBufferSourceNode;
 	disconnectFromBuffer(): void;
 	connect(node: AudioNode): void;
 	disconnect(): void;
 	play(): void;
-	stop(): void;
+	stop(): Promise<void>;
 	pause(): void;
 	off(): void;
 	on(event: string, callback: (detail?: PlayEventDetail) => void): void;
@@ -32,9 +34,6 @@ export default class AudioPlayer {
 	soundtouch: Soundtouch;
 	buffer: ArrayBuffer;
 	bufferNode: AudioBufferSourceNode;
-	updateProgress: (detail: PlayEventDetail) => void;
-	isReady = false;
-	isPlaying = false;
 	paused = false;
 
 	constructor(plugin: TTSPlugin) {
@@ -47,18 +46,11 @@ export default class AudioPlayer {
 		await registerSoundtouchWorklet(this.audioCtx);
 	}
 
-	private onEnd = (detail: PlayEventDetail) => {
-		// this.updateProgress(detail);
-		this.soundtouch.percentagePlayed = 0;
+	private onEnd = () => {
+		this.stop();
 	}
 
-	// protected set setUpdateProgressCallback(updateProgress: (detail: PlayEventDetail) => void) {
-	// 	this.updateProgress = updateProgress;
-	// }
-	
 	private onInitialized() {
-		this.isReady = true;
-		// this.soundtouch.on('play', this.updateProgress);
 		this.soundtouch.on('end', () => this.onEnd);
 		this.soundtouch.tempo = this.plugin.settings.rate;
 		this.soundtouch.pitch = this.plugin.settings.pitch;
@@ -76,15 +68,13 @@ export default class AudioPlayer {
 	}
 
 	protected play(): void {
-		if (!this.isReady) return;
+		if (!this.soundtouch.ready) return;
 		this.bufferNode = this.soundtouch.connectToBuffer(); // AudioBuffer goes to SoundTouchNode
 		this.gainNode = this.audioCtx.createGain();
 		this.soundtouch.connect(this.gainNode); // SoundTouch goes to the GainNode
 		this.gainNode.connect(this.audioCtx.destination); // GainNode goes to the AudioDestinationNode
 
 		this.soundtouch.play();
-
-		this.isPlaying = true;
 	}
 
 	private disconnect(): boolean {
@@ -92,13 +82,13 @@ export default class AudioPlayer {
 		this.gainNode.disconnect(); // disconnect the DestinationNode
 		this.soundtouch.disconnect(); // disconnect the AudioGainNode
 		this.soundtouch.disconnectFromBuffer(); // disconnect the SoundTouchNode
+		return true;
 	}
 
 	protected stop(): void {
 		if (!this.disconnect()) return;
-		this.soundtouch.percentagePlayed = 0;
-		this.soundtouch.pause();
-		this.paused = true;
+		this.soundtouch.off();
+		this.soundtouch.stop();
 	}
 
 	protected pause(): void {

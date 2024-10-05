@@ -180,7 +180,6 @@ export default class TTSPlugin extends Plugin {
 				return;
 			}
 
-			this.menuVisible = true;
 			await this.createMenu();
 		});
 
@@ -190,10 +189,10 @@ export default class TTSPlugin extends Plugin {
 	removeMenu(): void {
 		this.menuVisible = false;
 		clearInterval(this.statusbarIntervalId);
-		this.seekbar.remove();
-		this.playButton.remove();
-		this.pauseButton.remove();
-		this.stopButton.remove();
+		this.seekbar?.remove();
+		this.playButton?.remove();
+		this.pauseButton?.remove();
+		this.stopButton?.remove();
 	}
 
 	async createMenu(): Promise<void> {
@@ -228,6 +227,7 @@ export default class TTSPlugin extends Plugin {
 
 		const markdownView = this.app.workspace.activeEditor;
 		if (markdownView) {
+			this.menuVisible = true;
 			if (this.serviceManager.isSpeaking()) {
 				this.playButton = this.addStatusBarItem()
 				setIcon(this.playButton, 'play-audio-glyph');
@@ -241,6 +241,7 @@ export default class TTSPlugin extends Plugin {
 		}
 
 		if (this.serviceManager.isSpeaking()) {
+			this.menuVisible = true;
 			// Seekbar
 			const curProgress = this.serviceManager.progress ? this.serviceManager.progress : 0;
 			this.seekbar = this.addStatusBarItem();

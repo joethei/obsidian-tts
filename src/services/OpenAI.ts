@@ -55,11 +55,13 @@ export class OpenAI extends AudioPlayer implements TTSService {
 	}
 
 	isPaused(): boolean {
+		if (!this.soundtouch) return false;
 		return this.paused;
 	}
 
 	isSpeaking(): boolean {
-		return this.isPlaying;
+		if (!this.soundtouch) return false;
+		return this.soundtouch.playing;
 	}
 
 	isValid(): boolean {
@@ -67,11 +69,11 @@ export class OpenAI extends AudioPlayer implements TTSService {
 	}
 
 	pause(): void {
-		this.pause();
+		super.pause();
 	}
 
 	resume(): void {
-		this.play();
+		super.play();
 	}
 
 	async sayWithVoice(text: string, voice: string) : Promise<void> {
@@ -94,7 +96,7 @@ export class OpenAI extends AudioPlayer implements TTSService {
 	}
 
 	stop(): void {
-		this.stop();
+		super.stop();
 	}
 
 	get progress(): number {
