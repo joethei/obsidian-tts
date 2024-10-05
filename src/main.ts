@@ -221,31 +221,15 @@ export default class TTSPlugin extends Plugin {
 				createPlayButton();
 			});
 		}
-
-		const markdownView = this.app.workspace.activeEditor;
-		if (markdownView) {
-			this.menuVisible = true;
-			if (this.serviceManager.isSpeaking()) {
-				this.playButton = this.addStatusBarItem()
-				setIcon(this.playButton, 'play-audio-glyph');
-				this.playButton.onClickEvent(async () => {
-					await this.play(markdownView);
-				});
-			} else {
-				await this.play(markdownView);
-				return;
-			}
-		}
-
-		if (this.serviceManager.isSpeaking()) {
+		const showControls = () => {
 			this.menuVisible = true;
 			// Seekbar
 			const curProgress = this.serviceManager.progress ? this.serviceManager.progress : 0;
 			this.seekbar = this.addStatusBarItem();
-			const slider = this.seekbar.createEl('input', {type: 'range', attr: {min: '0', max: '100', value: curProgress.toString(), step: '1'}});
+			const slider = this.seekbar.createEl('input', { type: 'range', attr: { min: '0', max: '100', value: curProgress.toString(), step: '1' } });
 			slider.classList.add('seekbar');
 			slider.style.background = getSeekbarBackgroundStyle(curProgress);
-			slider.oninput = function(this: HTMLInputElement) {
+			slider.oninput = function (this: HTMLInputElement) {
 				const value = parseInt(this.value);
 				this.style.background = getSeekbarBackgroundStyle(value);
 			};
@@ -278,6 +262,14 @@ export default class TTSPlugin extends Plugin {
 			} else {
 				createPauseButton();
 			}
+		}
+
+		const markdownView = this.app.workspace.activeEditor;
+		if (markdownView) {
+			await this.play(markdownView);
+			showControls();
+		} else if (this.serviceManager.isSpeaking()) {
+			showControls();
 		}
 	}
 
