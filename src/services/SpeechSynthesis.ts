@@ -1,6 +1,7 @@
 import {Platform} from "obsidian";
 import TTSPlugin from "../main";
 import {TTSService} from "./TTSService";
+import { resetStatusbar } from "../utils";
 
 export class SpeechSynthesis implements TTSService {
 	plugin: TTSPlugin;
@@ -81,6 +82,8 @@ export class SpeechSynthesis implements TTSService {
 			}
 		};
 		window.speechSynthesis.cancel();
+		resetStatusbar(this.plugin.statusbar);
+		this.plugin.statusbar.createSpan({text: 'Speaking'});
 		window.speechSynthesis.speak(msg);
 	}
 
@@ -88,8 +91,8 @@ export class SpeechSynthesis implements TTSService {
 		this.text = text;
 		this.words = text.split(' ');
 		this.voice = voice;
+		this.wordCounter = 0;
 		this.speak(text);
-		this.plugin.statusbar.createSpan({text: 'Speaking'});
 	}
 
 }

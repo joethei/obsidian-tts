@@ -8,7 +8,7 @@ import { DEFAULT_SETTINGS, LanguageVoiceMap, TTSSettings } from "./constants";
 import {registerAPI} from "@vanakat/plugin-api";
 import {detect} from "tinyld";
 import {ServiceManager} from "./ServiceManager";
-import { cleanText } from './utils';
+import { cleanText, resetStatusbar } from './utils';
 import 'regenerator-runtime/runtime';
 
 
@@ -128,8 +128,7 @@ export default class TTSPlugin extends Plugin {
 		//clear statusbar text if not speaking
 		this.registerInterval(window.setInterval(() => {
 			if (!this.serviceManager.isSpeaking()) {
-				this.statusbar.empty();
-				setIcon(this.statusbar, 'audio-file');
+				resetStatusbar(this.statusbar);
 			}
 		}, 1000 * 10));
 
@@ -277,6 +276,7 @@ export default class TTSPlugin extends Plugin {
 			setIcon(this.stopButton, 'stop-audio-glyph');
 			this.stopButton.onClickEvent(() => {
 				this.serviceManager.stop();
+				resetStatusbar(this.statusbar);
 				this.removeMenu();
 			});
 
