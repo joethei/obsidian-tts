@@ -7,6 +7,7 @@ import {
 	SpeechSynthesizer,
 	ResultReason
 } from "microsoft-cognitiveservices-speech-sdk";
+import { resetStatusbar } from "../utils";
 
 export class Azure implements TTSService {
 	plugin: TTSPlugin;
@@ -182,6 +183,10 @@ export class Azure implements TTSService {
 	}
 
 	async sayWithVoice(text: string, voice: string) : Promise<void> {
+		if (this.source) {
+			this.stop();
+			resetStatusbar(this.plugin.statusbar);
+		}
 		const speechConfig = SpeechConfig.fromSubscription(
 			this.plugin.settings.services.azure.key,
 			this.plugin.settings.services.azure.region
