@@ -82,16 +82,11 @@ export class TTSSettingsTab extends PluginSettingTab {
 					});
 			});
 		
-		const servicesEl = containerEl.createDiv("settings-banner", (banner) => {
-			banner.createEl("h4", {
-				cls: "setting-item-name",
-				text: "Configured services",
-			});
-		});
+		new Setting(containerEl).setName('Configured services').setHeading();
 
 		for (const service of this.plugin.serviceManager.getServices()) {
 			if (service.isConfigured() && service.isValid() && service.id !== "speechSynthesis") {
-				const setting = new Setting(servicesEl);
+				const setting = new Setting(containerEl);
 				setting.setName(service.name);
 				setting.addExtraButton((b) => {
 					b.setIcon("pencil")
