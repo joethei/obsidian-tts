@@ -1,7 +1,7 @@
 import {TTSService} from "./services/TTSService";
 import TTSPlugin from "./main";
 import {SpeechSynthesis} from "./services/SpeechSynthesis";
-import {Notice} from "obsidian";
+import {Notice, Platform} from "obsidian";
 import { OpenAI } from "./services/OpenAI";
 import { Azure } from "./services/Azure";
 import { cleanText } from "./utils";
@@ -19,7 +19,11 @@ export class ServiceManager {
 
 	constructor(plugin: TTSPlugin) {
 		this.plugin = plugin;
-		this.services.push(new SpeechSynthesis(this.plugin));
+		// Due to a bug in android SpeechSynthesis does not work on this platform
+		// https://bugs.chromium.org/p/chromium/issues/detail?id=487255
+		if (!Platform.isAndroidApp) {
+			this.services.push(new SpeechSynthesis(this.plugin));
+		}
 		this.services.push(new OpenAI(this.plugin));
 		this.services.push(new Azure(this.plugin));
 		this.activeService = this.services.find(service => this.plugin.settings.defaultService === service.id);

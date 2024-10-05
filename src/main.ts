@@ -1,6 +1,6 @@
 import {
 	addIcon, MarkdownFileInfo,
-	MarkdownView, Notice, Platform,
+	MarkdownView, Notice,
 	Plugin, setIcon, TFile
 } from 'obsidian';
 import {TTSSettingsTab} from "./settings";
@@ -34,12 +34,6 @@ export default class TTSPlugin extends Plugin {
 		addIcon('tts-play-pause', '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256"><rect x="0" y="0" width="256" height="256" fill="none" stroke="none" /><path fill="currentColor" d="M184 64v128a8 8 0 0 1-16 0V64a8 8 0 0 1 16 0Zm40-8a8 8 0 0 0-8 8v128a8 8 0 0 0 16 0V64a8 8 0 0 0-8-8Zm-80 72a15.76 15.76 0 0 1-7.33 13.34l-88.19 56.15A15.91 15.91 0 0 1 24 184.15V71.85a15.91 15.91 0 0 1 24.48-13.34l88.19 56.15A15.76 15.76 0 0 1 144 128Zm-16.18 0L40 72.08v111.85Z"/></svg>');
 
 		console.log("loading tts plugin");
-
-		//https://bugs.chromium.org/p/chromium/issues/detail?id=487255
-		if (Platform.isAndroidApp) {
-			new Notice("TTS: due to a bug in android this plugin does not work on this platform");
-			this.unload();
-		}
 
 		await this.loadSettings();
 
