@@ -41,6 +41,8 @@ export interface TTSService {
 
 	getVoices() : Promise<Voice[]>;
 
+	seek(position: number): void;
+
 	/**
 	 * @internal
 	 * This may not be used, depending on user settings

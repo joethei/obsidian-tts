@@ -6,18 +6,24 @@ export class SpeechSynthesis implements TTSService {
 	plugin: TTSPlugin;
 	id = 'speechSynthesis';
 	name = 'Speech Synthesis';
-	currentTime = 0;
+	words: string[] = [];
+	wordCounter = 0;
+	voice = '';
+	text = '';
 
 	constructor(plugin: TTSPlugin) {
 		this.plugin = plugin;
 	}
 
 	get progress(): number {
-		return this.currentTime;
+		return this.wordCounter / this.words.length * 100;
 	}
 
-	seek(time: number): void {
-		this.currentTime = time;
+	seek(percent: number): void {
+		const wordIndex = Math.floor(this.words.length * percent / 100);
+		const fragment = this.words.slice(wordIndex).join(' ');
+		this.wordCounter = wordIndex;
+		this.speak(fragment);
 	}
 
 	stop(): void {
@@ -62,15 +68,28 @@ export class SpeechSynthesis implements TTSService {
 		})
 	}
 
-	async sayWithVoice(text: string, voice: string): Promise<void> {
+	private speak(text: string): void {
 		const msg = new SpeechSynthesisUtterance();
 		msg.text = text;
 		msg.volume = this.plugin.settings.volume;
 		msg.rate = this.plugin.settings.rate;
 		msg.pitch = this.plugin.settings.pitch;
-		msg.voice = window.speechSynthesis.getVoices().filter(otherVoice => otherVoice.name === voice)[0];
+		msg.voice = window.speechSynthesis.getVoices().filter(otherVoice => otherVoice.name === this.voice)[0];
+		msg.onboundary = (event) => {
+			if (event.name === "word") {
+				this.wordCounter++;
+			}
+		};
+		window.speechSynthesis.cancel();
 		window.speechSynthesis.speak(msg);
-		this.plugin.statusbar.createSpan({text: 'Speaking'});
+	}
+
+	async sayWithVoice(text: string, voice: string): Promise<void> {
+		this.text = text;
+		this.words = text.split(' ');
+		this.voice = voice;
+		this.speak(text);
+		// this.plugin.statusbar.createSpan({text: 'Speaking'});
 	}
 
 }

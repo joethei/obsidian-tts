@@ -101,4 +101,8 @@ export class OpenAI extends AudioPlayer implements TTSService {
 		return this.soundtouch.percentagePlayed;
 	}
 
+	seek(position: number): void {
+		this.soundtouch.percentagePlayed = position;
+	}
+
 }
