@@ -5,9 +5,17 @@ export class TextInputPrompt extends Modal {
     private resolve: (value: TextComponent) => void;
     private textComponent: TextComponent;
 
-    constructor(app: App, private promptText: string, private hint: string, private defaultValue: string, private placeholder: string) {
-        super(app);
-    }
+	constructor(
+		app: App,
+		private promptText: string,
+		private hint: string,
+		private defaultValue: string,
+		private placeholder: string,
+		private buttonText: string,
+		private autoClose: boolean = true
+	) {
+		super(app);
+	}
 
     onOpen(): void {
         this.titleEl.setText(this.promptText);
@@ -32,9 +40,12 @@ export class TextInputPrompt extends Modal {
 
         new Setting(div).addButton((b) => {
             b
-                .setButtonText("Play")
+                .setButtonText(this.buttonText)
                 .onClick(async () => {
                     this.resolve(this.textComponent);
+					if (this.autoClose) {
+						this.close();
+					}
                 });
             return b;
         });

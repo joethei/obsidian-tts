@@ -1,3 +1,8 @@
-export const cleanText = (text: string): string => {
-	return text; // TODO: Implement
+export const cleanText = (text: string, patterns: string[]): string => {
+	if (!patterns || patterns.length === 0) return text;
+	let res = text;
+	for (const pattern of patterns) {
+		res = res.replace(new RegExp(pattern, "g"), "");
+	}
+	return res;
 }

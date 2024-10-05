@@ -1,4 +1,4 @@
-import {ButtonComponent, PluginSettingTab, Setting} from "obsidian";
+import {ButtonComponent, Notice, PluginSettingTab, Setting} from "obsidian";
 import {TextInputPrompt} from "./TextInputPrompt";
 import TTSPlugin from "./main";
 import {LanguageVoiceModal} from "./LanguageVoiceModal";
@@ -56,7 +56,7 @@ export class TTSSettingsTab extends PluginSettingTab {
                 .setIcon("play-audio-glyph")
                 .setTooltip("Test voice")
                 .onClick(async () => {
-                    const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian");
+                    const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian", "Play", false);
                     await input.openAndGetValue((async value => {
                         if (value.getValue().length === 0) return;
                         await this.plugin.serviceManager.sayWithVoice(value.getValue(), this.plugin.settings.defaultVoice);
@@ -360,5 +360,48 @@ export class TTSSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 			});
+		
+		new Setting(containerEl)
+			.setName("Advanced")
+			.setHeading();
+		new Setting(containerEl)
+			.setName("Regex patterns to ignore when speaking")
+			.addButton((button: ButtonComponent): ButtonComponent => {
+				return button
+					.setTooltip("Edit regex patterns to ignore")
+					.setIcon("pencil")
+					.onClick(() => {
+						new TextInputPrompt(this.app, "Regex patterns to ignore", "This pattern is passed to the RegExp constructor", "", "\\[[\d\s,-]*\\]", "Submit").openAndGetValue(async (value) => {
+							// check if the value is a valid regex
+							try {
+								new RegExp(value.getValue());
+							} catch (e) {
+								new Notice("Invalid regex pattern");
+								return;
+							}
+							// check if the value is already in the list
+							if (this.plugin.settings.regexPatternsToIgnore.includes(value.getValue())) {
+								new Notice("This pattern is already in the list");
+								return;
+							}
+							this.plugin.settings.regexPatternsToIgnore.push(value.getValue());
+							await this.plugin.saveSettings();
+							this.display();
+						});
+					});
+				});
+		for (const pattern of this.plugin.settings.regexPatternsToIgnore) {
+			const setting = new Setting(containerEl);
+			setting.setName(pattern);
+			setting.addExtraButton((b) => {
+				b.setIcon("trash")
+					.setTooltip("Delete")
+					.onClick(() => {
+						this.plugin.settings.regexPatternsToIgnore = this.plugin.settings.regexPatternsToIgnore.filter(value => value !== pattern);
+						this.plugin.saveSettings();
+						this.display();
+					});
+			});
+		}
     }
 }

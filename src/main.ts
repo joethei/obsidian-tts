@@ -343,11 +343,11 @@ export default class TTSPlugin extends Plugin {
 
 		if (service === undefined) {
 			new Notice("TTS: Could not use configured language, please check your settings.\nUsing default voice");
-			await this.serviceManager.sayWithVoice(cleanText(text), this.settings.defaultVoice);
+			await this.serviceManager.sayWithVoice(cleanText(text, this.settings.regexPatternsToIgnore), this.settings.defaultVoice);
 			return;
 		}
 
-		await service.sayWithVoice(cleanText(text), split[1]);
+		await service.sayWithVoice(cleanText(text, this.settings.regexPatternsToIgnore), split[1]);
 	}
 
 	prepareText(title: string, text: string): string {

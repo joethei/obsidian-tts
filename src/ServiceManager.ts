@@ -57,7 +57,7 @@ export class ServiceManager {
 		if(!service) {
 			new Notice("No service found for voice" + voice);
 		}
-		await service.sayWithVoice(cleanText(text), voice);
+		await service.sayWithVoice(cleanText(text, this.plugin.settings.regexPatternsToIgnore), voice);
 	}
 
 	async getVoices(): Promise<Voice[]> {

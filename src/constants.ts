@@ -26,6 +26,7 @@ export interface TTSSettings {
 	speakComments: boolean;
     languageVoices: LanguageVoiceMap[];
 	stopPlaybackWhenNoteChanges: boolean;
+	regexPatternsToIgnore: string[];
 	services: {
 		openai: {
 			key: string;
@@ -56,6 +57,7 @@ export const DEFAULT_SETTINGS: TTSSettings = {
 	speakComments: false,
     languageVoices: [],
 	stopPlaybackWhenNoteChanges: false,
+	regexPatternsToIgnore: [],
 	services: {
 		openai: {
 			key: '',
