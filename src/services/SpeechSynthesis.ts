@@ -89,7 +89,7 @@ export class SpeechSynthesis implements TTSService {
 		this.words = text.split(' ');
 		this.voice = voice;
 		this.speak(text);
-		// this.plugin.statusbar.createSpan({text: 'Speaking'});
+		this.plugin.statusbar.createSpan({text: 'Speaking'});
 	}
 
 }

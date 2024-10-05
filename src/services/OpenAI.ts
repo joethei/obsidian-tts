@@ -93,6 +93,7 @@ export class OpenAI extends AudioPlayer implements TTSService {
 		});
 
 		this.setupSoundtouch(audioFile.arrayBuffer);
+		this.plugin.statusbar.createSpan({text: 'Speaking'});
 	}
 
 	stop(): void {

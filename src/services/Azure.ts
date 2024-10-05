@@ -223,6 +223,7 @@ export class Azure implements TTSService {
 						this.source.onAudioEnd = () => {
 							this._isPlaying = false;
 						};
+						this.plugin.statusbar.createSpan({text: 'Speaking'});
 					}
 				},
 				function (e) {
