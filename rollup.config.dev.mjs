@@ -1,35 +1,45 @@
-import typescript from '@rollup/plugin-typescript';
 import {nodeResolve} from '@rollup/plugin-node-resolve';
 import json from '@rollup/plugin-json';
 import commonjs from '@rollup/plugin-commonjs';
-import copy from 'rollup-plugin-copy'
+import webWorkerLoader from '@colingm/rollup-plugin-web-worker-loader';
+import del from 'rollup-plugin-delete';
+import copy from 'rollup-plugin-copy';
+import esbuild from 'rollup-plugin-esbuild'
 
 export default {
   input: 'src/main.ts',
   output: {
-    dir: 'examples/.obsidian/plugins/obsidian-tracker',
+    dir: './dist/obsidian-tts',
     sourcemap: 'inline',
     format: 'cjs',
     exports: 'default'
   },
-  external: ['obsidian'],
+  external: ['obsidian', 'electron'],
   plugins: [
-    typescript({ tsconfig: './tsconfig.json', exclude: ['**/*.d.ts'] }),
     nodeResolve({browser: true}),
     commonjs(),
+	esbuild({ target: 'es2018', minify: true }),
 	json(),
-    copy({
-      targets: [
-        { src: ['styles.css', 'manifest.json'], dest: 'examples/.obsidian/plugins/obsidian-tracker' }
-      ]
-    })
+	webWorkerLoader({ targetPlatform: 'browser' }),
+	copy({
+		targets: [{
+			src: 'node_modules/@soundtouchjs/audio-worklet/dist/soundtouch-worklet.js',
+			dest: 'src'
+		},
+        { src: ['manifest.json'], dest: './dist/obsidian-tts' }
+		],
+		hook: 'buildStart'
+	}),
+	del({
+		targets: 'src/soundtouch-worklet.js',
+		hook: 'buildEnd'
+	})
   ],
-  onwarn: function(warning, warner){
-    if (warning.code === 'CIRCULAR_DEPENDENCY'){
-        if(warning.importer && warning.importer.startsWith('node_modules')){
-            return;
-        }
-    }
-    warner(warning);
+  onwarn: function(warning, warner) {
+	if (warning.id && /node_modules/.test(warning.id)) return;
+	if (warning.ids && warning.ids.every((id) => /node_modules/.test(id)))
+		return;
+
+	warner(warning);
   }
 };
