@@ -245,13 +245,8 @@ export default class TTSPlugin extends Plugin {
 			const curProgress = this.serviceManager.progress ? this.serviceManager.progress : 0;
 			this.seekbar = this.addStatusBarItem();
 			const slider = this.seekbar.createEl('input', {type: 'range', attr: {min: '0', max: '100', value: curProgress.toString(), step: '1'}});
+			slider.classList.add('seekbar');
 			slider.style.background = getSeekbarBackgroundStyle(curProgress);
-			slider.style.border = "solid 1px var(--interactive-accent)";
-			slider.style.borderRadius = "8px";
-			slider.style.height = "7px";
-			slider.style.width = "200px";
-			slider.style.outline = "none";
-			slider.style.transition = "background 450ms ease-in";
 			slider.oninput = function(this: HTMLInputElement) {
 				const value = parseInt(this.value);
 				this.style.background = getSeekbarBackgroundStyle(value);

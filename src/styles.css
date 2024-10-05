@@ -1,0 +1,8 @@
+.seekbar {
+	border: "solid 1px var(--interactive-accent)";
+	border-radius: "8px";
+	height: "7px";
+	width: "200px";
+	outline: "none";
+	transition: "background 450ms ease-in";
+}
