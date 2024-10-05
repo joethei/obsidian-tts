@@ -27,7 +27,7 @@ export default {
   plugins: [
     nodeResolve({browser: true}),
     commonjs(),
-	esbuild({ target: 'es2018', minify: true }),
+	esbuild({ target: 'es2015', minify: true }),
 	json(),
 	webWorkerLoader({ targetPlatform: 'browser' }),
 	copy({

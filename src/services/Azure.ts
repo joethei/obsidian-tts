@@ -231,8 +231,8 @@ export class Azure implements TTSService {
 						this.plugin.statusbar.createSpan({text: 'Speaking'});
 					}
 				},
-				function (e) {
-					console.log(e);
+				function (error: string) {
+					console.error('[Azure]', error);
 					synthesizer.close();
 				}
 			);

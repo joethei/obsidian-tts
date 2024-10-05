@@ -51,7 +51,7 @@ export class ServiceConfigurationModal extends Modal {
 
 		if (service === 'azure') {
 			new Setting(contentEl)
-				.setName('Api key')
+				.setName('API key')
 				.setDesc('Azure speech services API key')
 				.addText(async text => {
 					text
