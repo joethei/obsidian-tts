@@ -1,16 +1,32 @@
 import {TTSService} from "./services/TTSService";
 import TTSPlugin from "./main";
 import {SpeechSynthesis} from "./services/SpeechSynthesis";
-import {Notice} from "obsidian";
+import {Notice, Platform} from "obsidian";
+import { OpenAI } from "./services/OpenAI";
+import { Azure } from "./services/Azure";
+import { cleanText } from "./utils";
 
+export interface Voice {
+	service: string;
+	id: string;
+	name: string;
+	languages: string[];
+}
 export class ServiceManager {
 	private readonly plugin: TTSPlugin;
 	private services: TTSService[] = [];
+	private activeService: TTSService;
 
 	constructor(plugin: TTSPlugin) {
 		this.plugin = plugin;
-		this.services.push(new SpeechSynthesis(this.plugin));
-		//this.services.push(new OpenAI(this));
+		// Due to a bug in android SpeechSynthesis does not work on this platform
+		// https://bugs.chromium.org/p/chromium/issues/detail?id=487255
+		if (!Platform.isAndroidApp) {
+			this.services.push(new SpeechSynthesis(this.plugin));
+		}
+		this.services.push(new OpenAI(this.plugin));
+		this.services.push(new Azure(this.plugin));
+		this.activeService = this.services.find(service => this.plugin.settings.defaultService === service.id);
 	}
 
 	public getServices(): TTSService[] {
@@ -18,35 +34,23 @@ export class ServiceManager {
 	}
 
 	public isSpeaking(): boolean {
-		return this.services.some(service => service.isSpeaking());
+		return this.activeService.isSpeaking();
 	}
 
 	public isPaused(): boolean {
-		return this.services.every(service => service.isPaused());
+		return this.activeService.isPaused();
 	}
 
 	stop() : void {
-		for (const service of this.services) {
-			if(service.isSpeaking() || service.isPaused()) {
-				service.stop();
-			}
-		}
+		this.activeService.stop();
 	}
 
 	pause() : void {
-		for (const service of this.services) {
-			if(service.isSpeaking()) {
-				service.pause();
-			}
-		}
+		this.activeService.pause();
 	}
 
 	resume(): void {
-		for (const service of this.services) {
-			if(service.isPaused()) {
-				service.resume();
-			}
-		}
+		this.activeService.resume();
 	}
 
 	async sayWithVoice(text: string, voice: string): Promise<void> {
@@ -57,11 +61,10 @@ export class ServiceManager {
 		if(!service) {
 			new Notice("No service found for voice" + voice);
 		}
-		await service.sayWithVoice(text, voice);
-
+		await service.sayWithVoice(cleanText(text, this.plugin.settings.regexPatternsToIgnore), voice);
 	}
 
-	async getVoices() {
+	async getVoices(): Promise<Voice[]> {
 		const voices = [];
 		for (const service of this.services) {
 			for (const voice of await service.getVoices()) {
@@ -76,5 +79,12 @@ export class ServiceManager {
 		return voices;
 	}
 
+	get progress(): number {
+		return this.activeService.progress;
+	}
+
+	seek(progress: number): void {
+		this.activeService.seek(progress);
+	}
 
 }

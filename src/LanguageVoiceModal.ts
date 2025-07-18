@@ -1,5 +1,5 @@
 import {Modal, Setting} from "obsidian";
-import {LanguageVoiceMap} from "./settings";
+import { LanguageVoiceMap } from "./DEFAULT_SETTINGS";
 import {TextInputPrompt} from "./TextInputPrompt";
 import TTSPlugin from "./main";
 import languages from "@cospired/i18n-iso-languages";
@@ -73,7 +73,7 @@ export class LanguageVoiceModal extends Modal {
                 .setIcon("play-audio-glyph")
                 .setTooltip("Test voice")
                 .onClick(async() => {
-                    const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian");
+                    const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian", "Play", false);
                     await input.openAndGetValue((async value => {
                         if (value.getValue().length === 0) return;
                         await this.plugin.serviceManager.sayWithVoice(value.getValue(), this.id);

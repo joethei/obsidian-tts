@@ -1,55 +1,10 @@
-import {ButtonComponent, PluginSettingTab, Setting} from "obsidian";
+import {ButtonComponent, Notice, PluginSettingTab, Setting} from "obsidian";
 import {TextInputPrompt} from "./TextInputPrompt";
 import TTSPlugin from "./main";
 import {LanguageVoiceModal} from "./LanguageVoiceModal";
+import { ServiceConfigurationModal } from "./ServiceConfigurationModal";
+import {DEFAULT_SETTINGS} from "./constants";
 
-export interface LanguageVoiceMap {
-	id: string;
-    language: string;
-    voice: string;
-}
-
-export interface TTSSettings {
-    defaultVoice: string,
-    pitch: number;
-    rate: number;
-    volume: number;
-    speakLinks: boolean;
-    speakFrontmatter: boolean;
-    speakSyntax: boolean;
-	speakCodeblocks: boolean;
-    speakTitle: boolean;
-	speakEmoji: boolean;
-	speakComments: boolean;
-    languageVoices: LanguageVoiceMap[];
-	stopPlaybackWhenNoteChanges: boolean;
-	services: {
-		openai: {
-			key: string;
-		}
-	}
-}
-
-export const DEFAULT_SETTINGS: TTSSettings = {
-    defaultVoice: "",
-    pitch: 1,
-    rate: 1,
-    volume: 1,
-    speakLinks: false,
-    speakFrontmatter: false,
-    speakSyntax: false,
-    speakTitle: true,
-	speakCodeblocks: false,
-	speakEmoji: false,
-	speakComments: false,
-    languageVoices: [],
-	stopPlaybackWhenNoteChanges: false,
-	services: {
-		openai: {
-			key: '',
-		}
-	}
-}
 
 export class TTSSettingsTab extends PluginSettingTab {
     plugin: TTSPlugin;
@@ -84,12 +39,15 @@ export class TTSSettingsTab extends PluginSettingTab {
 				}
 
                 for (const voice of voices) {
-                    //dropdown.addOption(`${voice.serviceId}-${voice.id}`, `${voice.serviceName}: ${voice.name}`);
-					dropdown.addOption(`${voice.serviceId}-${voice.id}`, `${voice.name}`);
+					if (voice.serviceId === this.plugin.settings.defaultService) {
+						dropdown.addOption(`${voice.serviceId}-${voice.id}`, `${voice.name}`);
+					}
                 }
                 dropdown
                     .setValue(this.plugin.settings.defaultVoice)
                     .onChange(async (value) => {
+                        const serviceKey = `${value.split('-')[0]}Voice`;
+                        this.plugin.settings.defaultVoices[serviceKey] = value;
                         this.plugin.settings.defaultVoice = value;
                         await this.plugin.saveSettings();
                     });
@@ -98,7 +56,7 @@ export class TTSSettingsTab extends PluginSettingTab {
                 .setIcon("play-audio-glyph")
                 .setTooltip("Test voice")
                 .onClick(async () => {
-                    const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian");
+                    const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian", "Play", false);
                     await input.openAndGetValue((async value => {
                         if (value.getValue().length === 0) return;
                         await this.plugin.serviceManager.sayWithVoice(value.getValue(), this.plugin.settings.defaultVoice);
@@ -108,7 +66,7 @@ export class TTSSettingsTab extends PluginSettingTab {
                 });
         });
 
-		/*new Setting(containerEl)
+		new Setting(containerEl)
 			.setName("Services")
 			.setHeading();
 
@@ -122,7 +80,43 @@ export class TTSSettingsTab extends PluginSettingTab {
 					.onClick(() => {
 						new ServiceConfigurationModal(this.plugin).open();
 					});
-			});*/
+			});
+		
+		new Setting(containerEl).setName('Configured services').setHeading();
+
+		for (const service of this.plugin.serviceManager.getServices()) {
+			if (service.isConfigured() && service.isValid() && service.id !== "speechSynthesis") {
+				const setting = new Setting(containerEl);
+				setting.setName(service.name);
+				setting.addExtraButton((b) => {
+					b.setIcon("pencil")
+						.setTooltip("Edit")
+						.onClick(() => {
+							new ServiceConfigurationModal(this.plugin, service.id).open();
+						});
+				});
+			}
+		}
+		
+		new Setting(containerEl)
+			.setName("Active service")
+			.setDesc("Select voice service to use")
+            .addDropdown(async (dropdown) => {
+				const services = this.plugin.serviceManager.getServices();
+				for (const service of services) {
+					if (service.isConfigured() && service.isValid()) {
+						dropdown.addOption(service.id, service.name);
+					}
+				}
+                dropdown
+                    .setValue(this.plugin.settings.defaultService)
+                    .onChange(async (value) => {
+                        this.plugin.settings.defaultService = value;
+						this.plugin.settings.defaultVoice = this.plugin.settings.defaultVoices[`${value}Voice`];
+                        await this.plugin.saveSettings();
+						this.display();
+                    });
+            });
 
 		new Setting(containerEl)
 			.setName("Language specific voices")
@@ -366,5 +360,48 @@ export class TTSSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 			});
+		
+		new Setting(containerEl)
+			.setName("Advanced")
+			.setHeading();
+		new Setting(containerEl)
+			.setName("Regex patterns to ignore when speaking")
+			.addButton((button: ButtonComponent): ButtonComponent => {
+				return button
+					.setTooltip("Edit regex patterns to ignore")
+					.setIcon("pencil")
+					.onClick(() => {
+						new TextInputPrompt(this.app, "Regex patterns to ignore", "This pattern is passed to the RegExp constructor", "", "\\[[\d\s,-]*\\]", "Submit").openAndGetValue(async (value) => {
+							// check if the value is a valid regex
+							try {
+								new RegExp(value.getValue());
+							} catch (e) {
+								new Notice("Invalid regex pattern");
+								return;
+							}
+							// check if the value is already in the list
+							if (this.plugin.settings.regexPatternsToIgnore.includes(value.getValue())) {
+								new Notice("This pattern is already in the list");
+								return;
+							}
+							this.plugin.settings.regexPatternsToIgnore.push(value.getValue());
+							await this.plugin.saveSettings();
+							this.display();
+						});
+					});
+				});
+		for (const pattern of this.plugin.settings.regexPatternsToIgnore) {
+			const setting = new Setting(containerEl);
+			setting.setName(pattern);
+			setting.addExtraButton((b) => {
+				b.setIcon("trash")
+					.setTooltip("Delete")
+					.onClick(() => {
+						this.plugin.settings.regexPatternsToIgnore = this.plugin.settings.regexPatternsToIgnore.filter(value => value !== pattern);
+						this.plugin.saveSettings();
+						this.display();
+					});
+			});
+		}
     }
 }

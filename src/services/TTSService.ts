@@ -8,6 +8,7 @@ export interface TTSService {
 
 	id: string;
 	name: string;
+	progress: number;
 
 	/**
 	 * @public
@@ -39,6 +40,8 @@ export interface TTSService {
 	isValid(): boolean;
 
 	getVoices() : Promise<Voice[]>;
+
+	seek(position: number): void;
 
 	/**
 	 * @internal

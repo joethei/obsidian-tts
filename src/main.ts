@@ -1,34 +1,39 @@
 import {
 	addIcon, MarkdownFileInfo,
-	MarkdownView, Menu, Notice, Platform,
+	MarkdownView, Notice,
 	Plugin, setIcon, TFile
 } from 'obsidian';
-import {DEFAULT_SETTINGS, LanguageVoiceMap, TTSSettings, TTSSettingsTab} from "./settings";
+import {TTSSettingsTab} from "./settings";
+import { DEFAULT_SETTINGS, LanguageVoiceMap, TTSSettings } from "./constants";
 import {registerAPI} from "@vanakat/plugin-api";
 import {detect} from "tinyld";
 import {ServiceManager} from "./ServiceManager";
+import { cleanText, resetStatusbar } from './utils';
+import 'regenerator-runtime/runtime';
 
 
 export default class TTSPlugin extends Plugin {
 	settings: TTSSettings;
 	statusbar: HTMLElement;
+	menuVisible = false;
+	statusbarIntervalId: number;
+	seekbar: HTMLElement;
+	playButton: HTMLElement;
+	pauseButton: HTMLElement;
+	stopButton: HTMLElement;
+
 
 	serviceManager: ServiceManager;
 
+	get isPaused(): boolean {
+		return this.serviceManager.isPaused();
+	}
 
 	async onload(): Promise<void> {
 		// from https://github.com/phosphor-icons/core
 		addIcon('tts-play-pause', '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256"><rect x="0" y="0" width="256" height="256" fill="none" stroke="none" /><path fill="currentColor" d="M184 64v128a8 8 0 0 1-16 0V64a8 8 0 0 1 16 0Zm40-8a8 8 0 0 0-8 8v128a8 8 0 0 0 16 0V64a8 8 0 0 0-8-8Zm-80 72a15.76 15.76 0 0 1-7.33 13.34l-88.19 56.15A15.91 15.91 0 0 1 24 184.15V71.85a15.91 15.91 0 0 1 24.48-13.34l88.19 56.15A15.76 15.76 0 0 1 144 128Zm-16.18 0L40 72.08v111.85Z"/></svg>');
 
-
-
 		console.log("loading tts plugin");
-
-		//https://bugs.chromium.org/p/chromium/issues/detail?id=487255
-		if (Platform.isAndroidApp) {
-			new Notice("TTS: due to a bug in android this plugin does not work on this platform");
-			this.unload();
-		}
 
 		await this.loadSettings();
 
@@ -64,7 +69,7 @@ export default class TTSPlugin extends Plugin {
 		this.addCommand({
 			id: 'pause-tts-playback',
 			name: 'pause playback',
-			icon: 'pause',
+			icon: 'lucide-pause-circle',
 			checkCallback: (checking: boolean) => {
 				if (!checking) {
 					this.serviceManager.pause();
@@ -115,13 +120,12 @@ export default class TTSPlugin extends Plugin {
 		//clear statusbar text if not speaking
 		this.registerInterval(window.setInterval(() => {
 			if (!this.serviceManager.isSpeaking()) {
-				this.statusbar.empty();
-				setIcon(this.statusbar, 'audio-file');
+				resetStatusbar(this.statusbar);
 			}
 		}, 1000 * 10));
 
-		this.addRibbonIcon("audio-file", "Text to Speech", async (event) => {
-			await this.createMenu(event);
+		this.addRibbonIcon("audio-file", "Text to Speech", async () => {
+			await this.createMenu();
 		});
 
 		this.registerEvent(this.app.workspace.on('editor-menu', ((menu, _, markdownView) => {
@@ -161,67 +165,106 @@ export default class TTSPlugin extends Plugin {
 		this.statusbar.classList.add("mod-clickable");
 		this.statusbar.setAttribute("aria-label", "Text to Speech");
 		this.statusbar.setAttribute("aria-label-position", "bottom");
-		this.statusbar.onClickEvent(async (event) => {
-			await this.createMenu(event);
+		this.statusbar.onClickEvent(async () => {
+			if (this.menuVisible) {
+				this.removeMenu();
+				return;
+			}
+
+			await this.createMenu();
 		});
 
 		registerAPI("tts", this.serviceManager, this);
 	}
 
-	async createMenu(event: MouseEvent): Promise<void> {
-		const menu = new Menu();
+	removeMenu(): void {
+		this.menuVisible = false;
+		clearInterval(this.statusbarIntervalId);
+		this.seekbar?.remove();
+		this.playButton?.remove();
+		this.pauseButton?.remove();
+		this.stopButton?.remove();
+	}
+
+	async createMenu(): Promise<void> {
+		const getSeekbarBackgroundStyle = (value: number): string => {
+			return 'linear-gradient(to right, var(--interactive-accent) 0%, var(--interactive-accent) ' + value + '%, #fff ' + value + '%, white 100%)';
+		}
+		const updateSeekbar = () => {
+			const value = this.serviceManager.progress;
+			this.seekbar.querySelector('input').value = value.toString();
+			this.seekbar.querySelector('input').style.background = getSeekbarBackgroundStyle(value);
+		};
+		const createPlayButton = () => {
+			this.playButton = this.addStatusBarItem();
+			setIcon(this.playButton, 'play-audio-glyph');
+			this.playButton.onClickEvent(() => {
+				this.serviceManager.resume();
+				this.statusbarIntervalId = this.registerInterval(window.setInterval(updateSeekbar, 1000));
+				this.playButton.remove();
+				createPauseButton();
+			});
+		}
+		const createPauseButton = () => {
+			this.pauseButton = this.addStatusBarItem();
+			setIcon(this.pauseButton, 'lucide-pause-circle');
+			this.pauseButton.onClickEvent(() => {
+				clearInterval(this.statusbarIntervalId);
+				this.serviceManager.pause();
+				this.pauseButton.remove();
+				createPlayButton();
+			});
+		}
+		const showControls = () => {
+			this.menuVisible = true;
+			// Seekbar
+			const curProgress = this.serviceManager.progress ? this.serviceManager.progress : 0;
+			this.seekbar = this.addStatusBarItem();
+			const slider = this.seekbar.createEl('input', { type: 'range', attr: { min: '0', max: '100', value: curProgress.toString(), step: '1' } });
+			slider.classList.add('seekbar');
+			slider.style.background = getSeekbarBackgroundStyle(curProgress);
+			slider.oninput = function (this: HTMLInputElement) {
+				const value = parseInt(this.value);
+				this.style.background = getSeekbarBackgroundStyle(value);
+			};
+
+			this.statusbarIntervalId = this.registerInterval(window.setInterval(updateSeekbar, 1000));
+
+			this.seekbar.querySelector('input').onmousedown = () => {
+				if (!this.isPaused) {
+					clearInterval(this.statusbarIntervalId);
+				}
+			};
+			this.seekbar.querySelector('input').onchange = (e) => {
+				this.serviceManager.seek(parseInt((e.target as HTMLInputElement).value));
+				if (!this.isPaused) {
+					this.statusbarIntervalId = this.registerInterval(window.setInterval(updateSeekbar, 1000));
+				}
+			};
+
+			// Stop button
+			this.stopButton = this.addStatusBarItem();
+			setIcon(this.stopButton, 'stop-audio-glyph');
+			this.stopButton.onClickEvent(() => {
+				this.serviceManager.stop();
+				resetStatusbar(this.statusbar);
+				this.removeMenu();
+			});
+
+			if (this.serviceManager.isPaused()) {
+				createPlayButton();
+			} else {
+				createPauseButton();
+			}
+		}
 
 		const markdownView = this.app.workspace.activeEditor;
 		if (markdownView) {
-			if (window.speechSynthesis.speaking) {
-				menu.addItem((item) => {
-					item
-						.setIcon("play-audio-glyph")
-						.setTitle("Add to playback queue")
-						.onClick((async () => {
-							await this.play(markdownView);
-						}));
-				});
-			} else {
-				await this.play(markdownView);
-				return;
-			}
+			await this.play(markdownView);
+			showControls();
+		} else if (this.serviceManager.isSpeaking()) {
+			showControls();
 		}
-
-		if (window.speechSynthesis.speaking) {
-			menu.addItem((item) => {
-				item
-					.setIcon("stop-audio-glyph")
-					.setTitle("Stop")
-					.onClick(async () => {
-						this.serviceManager.stop();
-					});
-			});
-
-
-			if (window.speechSynthesis.paused) {
-				menu.addItem((item) => {
-					item
-						.setIcon("play-audio-glyph")
-						.setTitle("Resume")
-						.onClick(async () => {
-							this.serviceManager.resume();
-						});
-				});
-			} else {
-				menu.addItem((item) => {
-					item
-						.setIcon("paused")
-						.setTitle("Pause")
-						.onClick(async () => {
-							this.serviceManager.pause();
-						});
-				});
-			}
-		}
-
-
-		menu.showAtPosition({x: event.x, y: event.y});
 	}
 
 	async onunload(): Promise<void> {
@@ -274,16 +317,17 @@ export default class TTSPlugin extends Plugin {
 				new Notice("TTS: could not find voice for language " + languageCode + ". Using default voice.");
 			}
 		}
+		// @ts-ignore
 		const split = usedVoice.split(/-(.*)/s);
 		const service = this.serviceManager.getServices().filter(service => service.id === split[0] && service.isConfigured() && service.isValid()).first();
 
 		if (service === undefined) {
 			new Notice("TTS: Could not use configured language, please check your settings.\nUsing default voice");
-			await this.serviceManager.sayWithVoice(text, this.settings.defaultVoice);
+			await this.serviceManager.sayWithVoice(cleanText(text, this.settings.regexPatternsToIgnore), this.settings.defaultVoice);
 			return;
 		}
 
-		await service.sayWithVoice(text, split[1]);
+		await service.sayWithVoice(cleanText(text, this.settings.regexPatternsToIgnore), split[1]);
 	}
 
 	prepareText(title: string, text: string): string {

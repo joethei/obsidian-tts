@@ -1,16 +1,15 @@
 import {TTSService} from "./TTSService";
 import TTSPlugin from "../main";
 import {requestUrl} from "obsidian";
+import AudioPlayer from "./AudioPlayer";
 
-export class OpenAI implements TTSService {
+export class OpenAI extends AudioPlayer implements TTSService {
 	plugin: TTSPlugin;
 	id = "openai";
 	name = "OpenAI";
 
-	source: AudioBufferSourceNode;
-	currentTime = 0;
-
 	constructor(plugin: TTSPlugin) {
+		super(plugin);
 		this.plugin = plugin;
 	}
 
@@ -56,13 +55,13 @@ export class OpenAI implements TTSService {
 	}
 
 	isPaused(): boolean {
-		if(!this.source) return true;
-		return this.source.context.state === "suspended";
+		if (!this.soundtouch) return false;
+		return this.paused;
 	}
 
 	isSpeaking(): boolean {
-		if(!this.source) return false;
-		return this.source.context.state === "running";
+		if (!this.soundtouch) return false;
+		return this.soundtouch.playing;
 	}
 
 	isValid(): boolean {
@@ -70,12 +69,11 @@ export class OpenAI implements TTSService {
 	}
 
 	pause(): void {
-		this.currentTime = this.source.context.currentTime;
-		this.source.stop();
+		super.pause();
 	}
 
 	resume(): void {
-		this.source.start(this.currentTime);
+		super.play();
 	}
 
 	async sayWithVoice(text: string, voice: string) : Promise<void> {
@@ -94,17 +92,20 @@ export class OpenAI implements TTSService {
 			})
 		});
 
-
-		const context = new AudioContext();
-		const buffer = await context.decodeAudioData(audioFile.arrayBuffer);
-		this.source = context.createBufferSource();
-		this.source.buffer = buffer;
-		this.source.connect(context.destination);
-		this.source.start();
+		await this.setupSoundtouch(audioFile.arrayBuffer);
+		this.plugin.statusbar.createSpan({text: 'Speaking'});
 	}
 
-	stop(): void {
-		this.source.stop();
+	stop(): Promise<void> {
+		return super.stop();
+	}
+
+	get progress(): number {
+		return this.soundtouch.percentagePlayed;
+	}
+
+	seek(position: number): void {
+		this.soundtouch.percentagePlayed = position;
 	}
 
 }
