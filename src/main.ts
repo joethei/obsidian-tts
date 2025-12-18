@@ -26,7 +26,7 @@ export default class TTSPlugin extends Plugin {
 
 		//https://bugs.chromium.org/p/chromium/issues/detail?id=487255
 		if (Platform.isAndroidApp) {
-			new Notice("TTS: due to a bug in android this plugin does not work on this platform");
+			new Notice("TTS: due to a bug in Android this plugin does not work on this platform");
 			this.unload();
 		}
 

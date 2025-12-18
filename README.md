@@ -36,7 +36,7 @@ This plugin uses the native API of your Operating System, to add a new language 
 
 ## Installing the plugin
 
-- `Settings > Community plugins > Community Plugins > Browse` and search for `Text to Speech`
+- `Settings > Community plugins > Community plugins > Browse` and search for `Text to Speech`
 
 ## API
 

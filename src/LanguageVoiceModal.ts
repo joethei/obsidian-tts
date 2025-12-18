@@ -1,4 +1,4 @@
-import {Modal, Setting} from "obsidian";
+import {Modal, Notice, Setting} from "obsidian";
 import {LanguageVoiceMap} from "./settings";
 import {TextInputPrompt} from "./TextInputPrompt";
 import TTSPlugin from "./main";
@@ -25,6 +25,7 @@ export class LanguageVoiceModal extends Modal {
 
     async display() : Promise<void> {
         const { contentEl } = this;
+		this.setTitle("Configure language specific voice");
 
 		const voices = await this.plugin.serviceManager.getVoices();
 
@@ -58,6 +59,11 @@ export class LanguageVoiceModal extends Modal {
 
         new Setting(contentEl)
             .setName("Voice")
+			.setDesc(createFragment(el => {
+				el.createSpan({text: 'See the '})
+				el.createEl('a', {text: 'documentation', href: 'https://github.com/joethei/obsidian-tts#adding-languages'})
+				el.createSpan({text: ' on how to add more voices'});
+			}))
             .addDropdown(async (dropdown) => {
                 for (const voice of voices) {
                     dropdown.addOption(voice.service + "-" + voice.id, voice.name + " - " + languageNames.of(voice.languages[0]));
@@ -73,6 +79,10 @@ export class LanguageVoiceModal extends Modal {
                 .setIcon("play-audio-glyph")
                 .setTooltip("Test voice")
                 .onClick(async() => {
+					if (this.id == null) {
+						new Notice('No voice selected');
+						return;
+					}
                     const input = new TextInputPrompt(this.app, "What do you want to hear?", "", "Hello world this is Text to speech running in obsidian", "Hello world this is Text to speech running in obsidian");
                     await input.openAndGetValue((async value => {
                         if (value.getValue().length === 0) return;
@@ -87,17 +97,18 @@ export class LanguageVoiceModal extends Modal {
         const footerEl = contentEl.createDiv();
         const footerButtons = new Setting(footerEl);
         footerButtons.addButton((b) => {
-            b.setTooltip("Save")
-                .setIcon("checkmark")
+            b
+				.setButtonText("Save")
+				.setCta()
                 .onClick(async () => {
                     this.saved = true;
                     this.close();
                 });
             return b;
         });
-        footerButtons.addExtraButton((b) => {
-            b.setIcon("cross")
-                .setTooltip("Cancel")
+        footerButtons.addButton((b) => {
+            b
+                .setButtonText("Cancel")
                 .onClick(() => {
                     this.saved = false;
                     this.close();
