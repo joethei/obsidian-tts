@@ -2,7 +2,6 @@
 
 Plugin for [Obsidian](https://obsidian.md)
 
-![Maintenance](https://shields.io/maintenance/yes/2023)
 ![GitHub manifest.json dynamic (path)](https://shields.io/github/manifest-json/minAppVersion/joethei/obsidian-tts?label=lowest%20supported%20app%20version)
 [![libera manifesto](https://shields.io/badge/libera-manifesto-lightgrey.svg)](https://liberamanifesto.com)
 ---
