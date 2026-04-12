@@ -42,15 +42,25 @@ export class SpeechSynthesis implements TTSService {
 		return !Platform.isAndroidApp;
 	}
 
-	async getVoices(): Promise<{id: string, name: string, languages: string[]}[]> {
+	private async loadVoices(): Promise<SpeechSynthesisVoice[]> {
 		const voices = window.speechSynthesis.getVoices();
+		if (voices.length > 0) return voices;
+		return new Promise(resolve => {
+			window.speechSynthesis.addEventListener('voiceschanged', () => {
+				resolve(window.speechSynthesis.getVoices());
+			}, {once: true});
+		});
+	}
+
+	async getVoices(): Promise<{id: string, name: string, languages: string[]}[]> {
+		const voices = await this.loadVoices();
 		return voices.map(voice => {
 			return {
 				id: voice.voiceURI,
 				name: voice.name,
 				languages: [voice.lang]
 			};
-		})
+		});
 	}
 
 	async sayWithVoice(text: string, voice: string): Promise<void> {
@@ -59,7 +69,8 @@ export class SpeechSynthesis implements TTSService {
 		msg.volume = this.plugin.settings.volume;
 		msg.rate = this.plugin.settings.rate;
 		msg.pitch = this.plugin.settings.pitch;
-		msg.voice = window.speechSynthesis.getVoices().filter(otherVoice => otherVoice.name === voice)[0];
+		const voices = await this.loadVoices();
+		msg.voice = voices.filter(otherVoice => otherVoice.voiceURI === voice)[0];
 		window.speechSynthesis.speak(msg);
 		this.plugin.statusbar.createSpan({text: 'Speaking'});
 	}
