@@ -43,14 +43,23 @@ You can use this plugins API to add Text to Speech capabilities to your plugin.
 
 This uses the [@vanakat/plugin-api](https://www.npmjs.com/package/@vanakat/plugin-api) package.
 
-You can find the API documentation here: [API Documentation](https://joethei.github.io/obsidian-tts/interfaces/TTSService.html)
-
 ```js
 const tts = pluginApi('tts');
-await tts.say(title, text, language);//language is optional, use a ISO 639-1 code
+await tts.say(title, text, language);
 tts.pause();
 tts.resume();
 tts.stop();
 tts.isSpeaking();
 tts.isPaused();
 ```
+
+| Method | Description |
+|---|---|
+| `say(title: string, text: string, languageCode?: string): Promise<void>` | Speak a text. Markdown is cleaned up according to the user's settings. The title is spoken first if the user enabled that, pass an empty string to skip it. `languageCode` is an [ISO 639-1](https://www.loc.gov/standards/iso639-2/php/English_list.php) code like `en`. If you leave it out, the language is detected from the text. When something is already playing, the text is queued. |
+| `pause(): void` | Pause playback. |
+| `resume(): void` | Resume paused playback. |
+| `stop(): void` | Stop playback and clear the queue. |
+| `isSpeaking(): boolean` | Whether something is playing, also `true` while paused. |
+| `isPaused(): boolean` | Whether playback is paused. |
+
+The type definitions are in [`src/ServiceManager.ts`](src/ServiceManager.ts) (`TTSApi`).
