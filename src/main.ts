@@ -1,14 +1,33 @@
 import {
 	addIcon, getFrontMatterInfo, MarkdownFileInfo,
 	MarkdownView, Menu, Notice, Platform,
-	Plugin, setIcon, TFile
+	Plugin, setIcon, TAbstractFile, TFile
 } from 'obsidian';
 import {DEFAULT_SETTINGS, LanguageVoiceMap, TTSSettings, TTSSettingsTab} from "./settings";
 import {registerAPI} from "@vanakat/plugin-api";
 import {detect} from "tinyld";
 import {ServiceManager} from "./ServiceManager";
 import {prepareText} from "./textPreparation";
+import {TTSService} from "./services/TTSService";
 
+/**
+ * A part of a note that should be read.
+ */
+interface SpeakRequest {
+	/** the note the text comes from, used for the language in the frontmatter */
+	file: TFile | null;
+	source: string;
+	/** range in source that should be read */
+	from: number;
+	to: number;
+	/** spoken first if the user enabled it, empty to skip */
+	title: string;
+	stripFrontmatter: boolean;
+}
+
+function isMarkdownFile(file: TAbstractFile): file is TFile {
+	return file instanceof TFile && file.extension === "md";
+}
 
 export default class TTSPlugin extends Plugin {
 	settings: TTSSettings;
@@ -50,7 +69,7 @@ export default class TTSPlugin extends Plugin {
 				const info = this.app.workspace.activeEditor;
 				if (!checking)
 					this.play(info);
-				return !!info;
+				return !!info?.file;
 			}
 		});
 
@@ -125,29 +144,28 @@ export default class TTSPlugin extends Plugin {
 			await this.createMenu(event);
 		});
 
-		this.registerEvent(this.app.workspace.on('editor-menu', ((menu, _, markdownView) => {
+		this.registerEvent(this.app.workspace.on('editor-menu', ((menu, editor, info) => {
+			const selected = editor.getSelection().trim().length > 0;
 			menu.addItem((item) => {
 				item
-					.setTitle(activeWindow.getSelection().toString().length > 0 ? "Read selected text" : "Read the note")
+					.setTitle(selected ? "Read selected text" : "Read the note")
 					.setIcon("audio-file")
 					.onClick(() => {
-						this.play(markdownView);
+						this.play(info);
 					});
 			});
 		})));
 		this.registerEvent(this.app.workspace.on('file-menu', ((menu, file) => {
-			if(file instanceof TFile) {
+			if (isMarkdownFile(file)) {
 				menu.addItem((item) => {
 					item
 						.setTitle("Read the note")
 						.setIcon("audio-file")
 						.onClick(async () => {
-							const content = await this.app.vault.cachedRead(file);
-							await this.say(file.name, content);
+							await this.readFile(file);
 						});
 				});
 			}
-
 		})));
 
 		this.registerEvent(this.app.workspace.on('layout-change', (() => {
@@ -230,13 +248,14 @@ export default class TTSPlugin extends Plugin {
 
 	async createMenu(event: MouseEvent): Promise<void> {
 		const menu = new Menu();
+		const speaking = this.serviceManager.isSpeaking();
 
 		const markdownView = this.app.workspace.activeEditor;
-		if (markdownView) {
-			if (window.speechSynthesis.speaking) {
+		if (markdownView?.file) {
+			if (speaking) {
 				menu.addItem((item) => {
 					item
-						.setIcon("play-audio-glyph")
+						.setIcon("list-plus")
 						.setTitle("Add to playback queue")
 						.onClick((async () => {
 							await this.play(markdownView);
@@ -248,7 +267,7 @@ export default class TTSPlugin extends Plugin {
 			}
 		}
 
-		if (window.speechSynthesis.speaking) {
+		if (speaking) {
 			menu.addItem((item) => {
 				item
 					.setIcon("stop-audio-glyph")
@@ -259,7 +278,7 @@ export default class TTSPlugin extends Plugin {
 			});
 
 
-			if (window.speechSynthesis.paused) {
+			if (this.serviceManager.isPaused()) {
 				menu.addItem((item) => {
 					item
 						.setIcon("play-audio-glyph")
@@ -271,7 +290,7 @@ export default class TTSPlugin extends Plugin {
 			} else {
 				menu.addItem((item) => {
 					item
-						.setIcon("paused")
+						.setIcon("pause")
 						.setTitle("Pause")
 						.onClick(async () => {
 							this.serviceManager.pause();
@@ -286,11 +305,11 @@ export default class TTSPlugin extends Plugin {
 
 	async onunload(): Promise<void> {
 		console.log("unloading tts plugin");
+		this.serviceManager?.stop();
 	}
 
 	async loadSettings(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-
 	}
 
 	async migrateSettings(): Promise<void> {
@@ -324,58 +343,120 @@ export default class TTSPlugin extends Plugin {
 		return filtered[0].voice;
 	}
 
-	async say(text: string, languageCode?: string): Promise<void> {
+	private findService(voice: string): { service: TTSService, voice: string } | null {
+		const separator = voice.indexOf("-");
+		const serviceId = separator === -1 ? voice : voice.substring(0, separator);
+		const service = this.serviceManager.getServices().find(service => service.id === serviceId && service.isConfigured() && service.isValid());
+		if (!service) return null;
+		return {service, voice: separator === -1 ? "" : voice.substring(separator + 1)};
+	}
+
+	/**
+	 * Find the voice for a language, falling back to the default voice.
+	 * @param explicit the language was set by the user rather than detected, warn if there is no voice for it.
+	 */
+	private resolveVoice(languageCode?: string, explicit = true): { service: TTSService, voice: string } | null {
 		let usedVoice = this.settings.defaultVoice;
 		if (languageCode && languageCode.length !== 0) {
 			const voice = this.getVoice(languageCode);
 			if (voice) {
 				usedVoice = voice;
-			} else {
+			} else if (explicit) {
 				new Notice("TTS: could not find voice for language " + languageCode + ". Using default voice.");
 			}
 		}
-		const split = usedVoice.split(/-(.*)/s);
-		const service = this.serviceManager.getServices().filter(service => service.id === split[0] && service.isConfigured() && service.isValid()).first();
+		const found = this.findService(usedVoice);
+		if (found) return found;
+		new Notice("TTS: Could not use configured language, please check your settings.\nUsing default voice");
+		return this.findService(this.settings.defaultVoice);
+	}
 
-		if (service === undefined) {
-			new Notice("TTS: Could not use configured language, please check your settings.\nUsing default voice");
+	/**
+	 * @param explicitLanguage false if the language was detected, so a missing voice for it is not reported.
+	 */
+	async say(text: string, languageCode?: string, explicitLanguage = true): Promise<void> {
+		const resolved = this.resolveVoice(languageCode, explicitLanguage);
+		if (!resolved) {
 			await this.serviceManager.sayWithVoice(text, this.settings.defaultVoice);
 			return;
 		}
-
-		await service.sayWithVoice(text, split[1]);
+		await resolved.service.sayWithVoice(text, resolved.voice);
 	}
 
 	prepareText(title: string, text: string): string {
 		return prepareText(this.settings, title, text);
 	}
 
-	async play(info: MarkdownFileInfo): Promise<void> {
-
-		const selectedText = info.editor.getSelection().length > 0 ? info.editor.getSelection() : activeWindow.getSelection().toString();
-
-		let content = selectedText.length > 0 ? selectedText : await this.app.vault.cachedRead(info.file);
-
-		//strip frontmatter before anything else touches the --- fences.
-		if (!this.settings.speakFrontmatter && selectedText.length === 0) {
-			const frontmatter = getFrontMatterInfo(content);
-			if (frontmatter.exists) {
-				content = content.substring(frontmatter.contentStart);
-			}
-		}
-
-		let language = this.getLanguageFromFrontmatter(info.file);
-		if (language === "") {
-			language = detect(content);
-		}
-
-		content = this.prepareText(selectedText.length > 0 ? '' : info.file.name, content);
-		await this.say(content, language);
-
+	detectLanguage(text: string): string {
+		return detect(text);
 	}
 
-	getLanguageFromFrontmatter(file: TFile): string {
-		return this.app.metadataCache.getFileCache(file).frontmatter?.lang;
+	async speak(request: SpeakRequest): Promise<void> {
+		let from = request.from;
+		//strip frontmatter before anything else touches the --- fences.
+		if (request.stripFrontmatter) {
+			const frontmatter = getFrontMatterInfo(request.source);
+			if (frontmatter.exists && from < frontmatter.contentStart) {
+				from = frontmatter.contentStart;
+			}
+		}
+		const text = request.source.substring(from, Math.max(from, request.to));
+		const spoken = this.prepareText(request.title, text);
+		if (spoken.trim().length === 0) {
+			new Notice("TTS: there is no text to read");
+			return;
+		}
+		//a missing voice is only reported for languages the user set, not for detected ones.
+		const frontmatterLanguage = request.file ? this.getLanguageFromFrontmatter(request.file) : undefined;
+		const language = frontmatterLanguage || this.detectLanguage(text);
+		await this.say(spoken, language, !!frontmatterLanguage);
+	}
+
+	async play(info: MarkdownFileInfo): Promise<void> {
+		const file = info?.file;
+		if (!file) return;
+		const preview = info instanceof MarkdownView && info.getMode() === "preview";
+		//the editor keeps its selection while reading view is shown.
+		const editor = preview ? undefined : info.editor;
+
+		if (editor && editor.getSelection().trim().length > 0) {
+			await this.speak({
+				file,
+				source: editor.getValue(),
+				from: editor.posToOffset(editor.getCursor("from")),
+				to: editor.posToOffset(editor.getCursor("to")),
+				title: "",
+				stripFrontmatter: false,
+			});
+			return;
+		}
+
+		//text selected in reading view, ignore selections elsewhere, like the search field.
+		const selection = activeWindow.getSelection();
+		const selectedText = preview && selection && info.containerEl.contains(selection.anchorNode) ? selection.toString() : "";
+		if (selectedText.trim().length > 0) {
+			await this.speak({file, source: selectedText, from: 0, to: selectedText.length, title: "", stripFrontmatter: false});
+			return;
+		}
+
+		const source = info.editor ? info.editor.getValue() : await this.app.vault.cachedRead(file);
+		await this.speak({
+			file,
+			source,
+			from: 0,
+			to: source.length,
+			title: file.basename,
+			stripFrontmatter: !this.settings.speakFrontmatter,
+		});
+	}
+
+	async readFile(file: TFile): Promise<void> {
+		const source = await this.app.vault.cachedRead(file);
+		await this.speak({file, source, from: 0, to: source.length, title: file.basename, stripFrontmatter: !this.settings.speakFrontmatter});
+	}
+
+	getLanguageFromFrontmatter(file: TFile): string | undefined {
+		return this.app.metadataCache.getFileCache(file)?.frontmatter?.lang;
 	}
 
 }

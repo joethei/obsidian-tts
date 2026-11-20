@@ -39,8 +39,8 @@ export function prepareText(settings: TextPreparationSettings, title: string, te
 
 	if (!settings.speakLinks) {
 		//regex from https://stackoverflow.com/a/37462442/5589264
-		content = content.replace(/(?:__|[*#])|\[(.*?)]\(.*?\)/gm, '$1');
-		content = content.replace(/http[s]:\/\/[^\s]*/gm, '');
+		content = content.replace(/(?:__|[*#])|\[([^\]\[]*)]\([^)]*\)/gm, '$1');
+		content = content.replace(/https?:\/\/[^\s]*/gm, '');
 	}
 
 	if (!settings.speakEmoji) {
