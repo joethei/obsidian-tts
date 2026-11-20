@@ -45,10 +45,15 @@ export class SpeechSynthesis implements TTSService {
 	private async loadVoices(): Promise<SpeechSynthesisVoice[]> {
 		const voices = window.speechSynthesis.getVoices();
 		if (voices.length > 0) return voices;
+		//voiceschanged never fires when the platform has no voices at all, so do not wait forever.
 		return new Promise(resolve => {
-			window.speechSynthesis.addEventListener('voiceschanged', () => {
+			const done = () => {
+				window.clearTimeout(timeout);
+				window.speechSynthesis.removeEventListener('voiceschanged', done);
 				resolve(window.speechSynthesis.getVoices());
-			}, {once: true});
+			};
+			const timeout = window.setTimeout(done, 2000);
+			window.speechSynthesis.addEventListener('voiceschanged', done);
 		});
 	}
 
@@ -70,7 +75,10 @@ export class SpeechSynthesis implements TTSService {
 		msg.rate = this.plugin.settings.rate;
 		msg.pitch = this.plugin.settings.pitch;
 		const voices = await this.loadVoices();
-		msg.voice = voices.filter(otherVoice => otherVoice.voiceURI === voice)[0];
+		//settings saved before the multi service refactor contain the voice name instead of the URI.
+		msg.voice = voices.find(otherVoice => otherVoice.voiceURI === voice)
+			?? voices.find(otherVoice => otherVoice.name === voice)
+			?? null;
 		window.speechSynthesis.speak(msg);
 		this.plugin.statusbar.createSpan({text: 'Speaking'});
 	}
