@@ -10,6 +10,8 @@ Features:
 - Start playback for note from statusbar and ribbon
 - Only speaking selected text in edit mode:
   ![Selection Demo](https://i.joethei.space/Obsidian_rjttPsYPwj.png)
+- Start reading at the cursor with the `Read from cursor` command, or `Read from here` in the context menu.
+  In reading view, right click a paragraph to read from there, or right click selected text to read it.
 - usable with other plugins (currently [RSS Reader](https://github.com/joethei/obsidian-rss))
 
 You can create language specific voices,

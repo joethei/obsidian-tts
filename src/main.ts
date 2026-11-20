@@ -1,6 +1,6 @@
 import {
-	addIcon, getFrontMatterInfo, MarkdownFileInfo,
-	MarkdownView, Menu, Notice, Platform,
+	addIcon, Editor, getFrontMatterInfo, MarkdownFileInfo,
+	MarkdownPostProcessorContext, MarkdownView, Menu, Notice, Platform,
 	Plugin, setIcon, TAbstractFile, TFile
 } from 'obsidian';
 import {DEFAULT_SETTINGS, LanguageVoiceMap, TTSSettings, TTSSettingsTab} from "./settings";
@@ -37,6 +37,8 @@ export default class TTSPlugin extends Plugin {
 	private seekbar: HTMLInputElement;
 	//true while the user drags the seekbar, so the periodic update does not move it back.
 	private seeking = false;
+	//rendered sections of reading view, to find the line the user clicked on.
+	private sectionContexts = new WeakMap<HTMLElement, MarkdownPostProcessorContext>();
 
 	serviceManager: ServiceManager;
 
@@ -70,6 +72,17 @@ export default class TTSPlugin extends Plugin {
 				if (!checking)
 					this.play(info);
 				return !!info?.file;
+			}
+		});
+
+		this.addCommand({
+			id: 'read-from-cursor',
+			name: 'Read from cursor',
+			icon: 'text-cursor-input',
+			editorCheckCallback: (checking, editor, info) => {
+				if (!checking)
+					this.readFromCursor(editor, info);
+				return !!info.file;
 			}
 		});
 
@@ -129,14 +142,6 @@ export default class TTSPlugin extends Plugin {
 			}
 		});
 
-		/*this.addCommand({
-			id: 'cursor',
-			name: 'after cursor',
-			editorCallback: (editor, _) => {
-				console.log(editor.getRange(editor.getCursor("from"), {line: editor.lastLine(), ch: editor.getLine(editor.lastLine()).length}));
-			}
-		})*/
-
 		//keep the playback controls in sync, speech engines do not report every state change.
 		this.registerInterval(window.setInterval(() => this.updateStatusbar(), 500));
 
@@ -154,6 +159,15 @@ export default class TTSPlugin extends Plugin {
 						this.play(info);
 					});
 			});
+			//macOS selects the word under the pointer on right click, so offer this with a selection as well.
+			menu.addItem((item) => {
+				item
+					.setTitle("Read from here")
+					.setIcon("text-cursor-input")
+					.onClick(() => {
+						this.readFromCursor(editor, info);
+					});
+			});
 		})));
 		this.registerEvent(this.app.workspace.on('file-menu', ((menu, file) => {
 			if (isMarkdownFile(file)) {
@@ -167,6 +181,14 @@ export default class TTSPlugin extends Plugin {
 				});
 			}
 		})));
+
+		this.registerMarkdownPostProcessor((element, context) => {
+			this.sectionContexts.set(element, context);
+		});
+		this.registerDomEvent(document, 'contextmenu', this.onReadingViewContextMenu);
+		this.registerEvent(this.app.workspace.on('window-open', (_, win) => {
+			this.registerDomEvent(win.document, 'contextmenu', this.onReadingViewContextMenu);
+		}));
 
 		this.registerEvent(this.app.workspace.on('layout-change', (() => {
 			if (this.settings.stopPlaybackWhenNoteChanges) {
@@ -301,6 +323,88 @@ export default class TTSPlugin extends Plugin {
 
 
 		menu.showAtPosition({x: event.x, y: event.y});
+	}
+
+	/**
+	 * Reading view has no context menu for text, so offer one for reading the note from there.
+	 */
+	private onReadingViewContextMenu = (event: MouseEvent): void => {
+		if (event.defaultPrevented || !this.settings.readingViewMenu) return;
+		const target = event.target as HTMLElement;
+		if (typeof target?.closest !== "function") return;
+		const container = target.closest(".markdown-reading-view");
+		if (!container) return;
+		const view = this.findMarkdownView(container);
+		const file = view?.file;
+		if (!file) return;
+
+		const selection = container.win.getSelection();
+		const selected = selection && !selection.isCollapsed && container.contains(selection.anchorNode) ? selection.toString() : "";
+
+		const menu = new Menu();
+		if (selected.length > 0) {
+			menu.addItem((item) => {
+				item
+					.setTitle("Copy")
+					.setIcon("lucide-copy")
+					.onClick(() => navigator.clipboard.writeText(selected));
+			});
+			menu.addItem((item) => {
+				item
+					.setTitle("Read selected text")
+					.setIcon("audio-file")
+					.onClick(() => this.speak({file, source: selected, from: 0, to: selected.length, title: "", stripFrontmatter: false}));
+			});
+		} else {
+			const line = this.getSectionLine(target, file);
+			if (line !== null) {
+				menu.addItem((item) => {
+					item
+						.setTitle("Read from here")
+						.setIcon("text-cursor-input")
+						.onClick(() => {
+							const source = view.editor.getValue();
+							const from = view.editor.posToOffset({line, ch: 0});
+							this.speak({file, source, from, to: source.length, title: "", stripFrontmatter: !this.settings.speakFrontmatter});
+						});
+				});
+			}
+			menu.addItem((item) => {
+				item
+					.setTitle("Read the note")
+					.setIcon("audio-file")
+					.onClick(() => this.play(view));
+			});
+		}
+		menu.showAtMouseEvent(event);
+		event.preventDefault();
+	};
+
+	private findMarkdownView(element: Element): MarkdownView | null {
+		let result: MarkdownView | null = null;
+		this.app.workspace.iterateAllLeaves(leaf => {
+			if (!result && leaf.view instanceof MarkdownView && leaf.view.containerEl.contains(element)) {
+				result = leaf.view;
+			}
+		});
+		return result;
+	}
+
+	/**
+	 * @returns the first line of the rendered section that contains element, null if it cannot be found.
+	 */
+	private getSectionLine(element: HTMLElement, file: TFile): number | null {
+		let current: HTMLElement | null = element;
+		while (current && !current.hasClass("markdown-reading-view")) {
+			const context = this.sectionContexts.get(current);
+			//sections of embedded notes have their own line numbers.
+			if (context && context.sourcePath === file.path) {
+				const info = context.getSectionInfo(current);
+				if (info) return info.lineStart;
+			}
+			current = current.parentElement;
+		}
+		return null;
 	}
 
 	async onunload(): Promise<void> {
@@ -446,6 +550,23 @@ export default class TTSPlugin extends Plugin {
 			from: 0,
 			to: source.length,
 			title: file.basename,
+			stripFrontmatter: !this.settings.speakFrontmatter,
+		});
+	}
+
+	async readFromCursor(editor: Editor, info: MarkdownFileInfo): Promise<void> {
+		const source = editor.getValue();
+		let from = editor.posToOffset(editor.getCursor("from"));
+		//start at the beginning of the word the cursor is in.
+		while (from > 0 && /\S/.test(source.charAt(from - 1))) {
+			from--;
+		}
+		await this.speak({
+			file: info.file,
+			source,
+			from,
+			to: source.length,
+			title: "",
 			stripFrontmatter: !this.settings.speakFrontmatter,
 		});
 	}

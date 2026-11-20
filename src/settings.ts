@@ -23,6 +23,7 @@ export interface TTSSettings {
 	speakComments: boolean;
     languageVoices: LanguageVoiceMap[];
 	stopPlaybackWhenNoteChanges: boolean;
+	readingViewMenu: boolean;
 	services: {
 		openai: {
 			key: string;
@@ -44,6 +45,7 @@ export const DEFAULT_SETTINGS: TTSSettings = {
 	speakComments: false,
     languageVoices: [],
 	stopPlaybackWhenNoteChanges: false,
+	readingViewMenu: true,
 	services: {
 		openai: {
 			key: '',
@@ -371,6 +373,19 @@ export class TTSSettingsTab extends PluginSettingTab {
 							.setValue(this.plugin.settings.stopPlaybackWhenNoteChanges)
 							.onChange(async (value) => {
 								this.plugin.settings.stopPlaybackWhenNoteChanges = value;
+								await this.plugin.saveSettings();
+							});
+					});
+			})
+			.addSetting(setting => {
+				setting
+					.setName("Context menu in reading view")
+					.setDesc("Right click in reading view to read the selected text, or to start reading from there")
+					.addToggle(async (toggle) => {
+						toggle
+							.setValue(this.plugin.settings.readingViewMenu)
+							.onChange(async (value) => {
+								this.plugin.settings.readingViewMenu = value;
 								await this.plugin.saveSettings();
 							});
 					});
