@@ -21,6 +21,7 @@ export interface TTSSettings {
     speakTitle: boolean;
 	speakEmoji: boolean;
 	speakComments: boolean;
+	speakFootnotes: boolean;
     languageVoices: LanguageVoiceMap[];
 	stopPlaybackWhenNoteChanges: boolean;
 	services: {
@@ -42,6 +43,7 @@ export const DEFAULT_SETTINGS: TTSSettings = {
 	speakCodeblocks: false,
 	speakEmoji: false,
 	speakComments: false,
+	speakFootnotes: false,
     languageVoices: [],
 	stopPlaybackWhenNoteChanges: false,
 	services: {
@@ -344,6 +346,19 @@ export class TTSSettingsTab extends PluginSettingTab {
 							.setValue(this.plugin.settings.speakSyntax)
 							.onChange(async (value) => {
 								this.plugin.settings.speakSyntax = value;
+								await this.plugin.saveSettings();
+							});
+					});
+			})
+			.addSetting(setting => {
+				setting
+					.setName("Footnotes")
+					.setDesc("Footnote references and the footnotes themselves")
+					.addToggle(async (toggle) => {
+						toggle
+							.setValue(this.plugin.settings.speakFootnotes)
+							.onChange(async (value) => {
+								this.plugin.settings.speakFootnotes = value;
 								await this.plugin.saveSettings();
 							});
 					});

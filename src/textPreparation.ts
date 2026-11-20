@@ -1,7 +1,34 @@
 import {TTSSettings} from "./settings";
 
 export type TextPreparationSettings = Pick<TTSSettings,
-	"speakSyntax" | "speakLinks" | "speakCodeblocks" | "speakComments" | "speakEmoji" | "speakTitle">;
+	"speakSyntax" | "speakLinks" | "speakCodeblocks" | "speakComments" | "speakEmoji" | "speakTitle" | "speakFootnotes">;
+
+/**
+ * Remove footnote definitions, including their indented continuation lines.
+ */
+function removeFootnoteDefinitions(text: string): string {
+	const lines = text.split("\n");
+	const result: string[] = [];
+	let inDefinition = false;
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		if (/^\[\^[^\]\s]+]:/.test(line)) {
+			inDefinition = true;
+			continue;
+		}
+		if (inDefinition) {
+			if (/^( {2,}|\t)/.test(line)) continue;
+			//blank lines belong to the definition when the next non blank line is still indented.
+			if (line.trim().length === 0) {
+				const next = lines.slice(i + 1).find(other => other.trim().length > 0);
+				if (next !== undefined && /^( {2,}|\t)/.test(next)) continue;
+			}
+			inDefinition = false;
+		}
+		result.push(line);
+	}
+	return result.join("\n");
+}
 
 /**
  * Turn markdown into text that can be handed to a speech engine.
@@ -23,6 +50,13 @@ export function prepareText(settings: TextPreparationSettings, title: string, te
 	if (!settings.speakComments) {
 		content = content.replace(/%%[\s\S]*?%%/g, '');
 		content = content.replace(/<!--[\s\S]*?-->/g, '');
+	}
+
+	if (!settings.speakFootnotes) {
+		content = removeFootnoteDefinitions(content);
+		//references like [^1] and inline footnotes like ^[some text]
+		content = content.replace(/\[\^[^\]\s]+]/g, "");
+		content = content.replace(/\^\[[^\]]*]/g, "");
 	}
 
 	if (!settings.speakSyntax) {
