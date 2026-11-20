@@ -68,7 +68,8 @@ export class ServiceManager {
 		split.shift();
 		voice = split.join("-");
 		if(!service) {
-			new Notice("No service found for voice" + voice);
+			new Notice("TTS: no service found for voice " + voice);
+			return;
 		}
 		await service.sayWithVoice(text, voice);
 
