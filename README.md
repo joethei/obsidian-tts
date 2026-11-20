@@ -33,6 +33,24 @@ This plugin uses the native API of your Operating System, to add a new language 
 
 <!--- [Android](https://support.google.com/accessibility/android/answer/6006983?hl=en)-->
 
+### Windows
+
+Obsidian can only use the voices Windows offers to apps, which are the ones listed under `Settings > Time & language > Speech`.
+Older SAPI5 voices, like IVONA voices, and the natural voices of Microsoft Edge are not available to Obsidian.
+
+### Linux
+
+Linux has no voices by default. To get voices:
+
+1. Install [speech-dispatcher](https://freebsoft.org/speechd) and a speech engine,
+   for example [espeak-ng](https://github.com/espeak-ng/espeak-ng) or [piper](https://github.com/rhasspy/piper).
+   The package names depend on your distribution.
+2. Run `spd-config -u` to configure speech-dispatcher for your user, then log out and back in.
+3. Start Obsidian with the `--enable-speech-dispatcher` flag.
+   If you installed Obsidian through Flatpak, the flag goes after the app id: `flatpak run md.obsidian.Obsidian --enable-speech-dispatcher`.
+
+Check that `spd-say "hello"` works in a terminal first, Obsidian will not have voices if it does not.
+
 ## Installing the plugin
 
 - `Settings > Community plugins > Community plugins > Browse` and search for `Text to Speech`
