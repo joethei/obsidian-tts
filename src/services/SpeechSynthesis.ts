@@ -23,11 +23,13 @@ export class SpeechSynthesis implements TTSService {
 	pause(): void {
 		if (!this.isSpeaking()) return;
 		window.speechSynthesis.pause();
+		this.current?.options.onPause?.();
 	}
 
 	resume(): void {
 		if (!this.isSpeaking()) return;
 		window.speechSynthesis.resume();
+		this.current?.options.onResume?.();
 	}
 
 	isSpeaking(): boolean {

@@ -18,6 +18,16 @@ export interface SpeakOptions {
 	 * Called when the text has been spoken, was stopped or failed.
 	 */
 	onEnd?(): void;
+
+	/**
+	 * Called when playback of the text is paused.
+	 */
+	onPause?(): void;
+
+	/**
+	 * Called when playback of the text continues after a pause.
+	 */
+	onResume?(): void;
 }
 
 export interface TTSService {

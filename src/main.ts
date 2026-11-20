@@ -10,7 +10,8 @@ import {detect} from "tinyld";
 import {ServiceManager} from "./ServiceManager";
 import {prepareText} from "./textPreparation";
 import {SpeakOptions, TTSService} from "./services/TTSService";
-import {alignWords, spokenWordField, SpokenWordHighlighter} from "./highlight";
+import {alignWords, EditorTarget, HighlightTarget, spokenWordField, SpokenWordHighlighter} from "./highlight";
+import {MarkdownViewTarget} from "./readingViewHighlight";
 
 /**
  * A part of a note that should be read.
@@ -25,8 +26,8 @@ interface SpeakRequest {
 	/** spoken first if the user enabled it, empty to skip */
 	title: string;
 	stripFrontmatter: boolean;
-	/** the editor showing source, to highlight the spoken word */
-	editor?: Editor;
+	/** the view showing source, to highlight the spoken word */
+	view?: MarkdownFileInfo;
 }
 
 function isMarkdownFile(file: TAbstractFile): file is TFile {
@@ -371,7 +372,7 @@ export default class TTSPlugin extends Plugin {
 						.onClick(() => {
 							const source = view.editor.getValue();
 							const from = view.editor.posToOffset({line, ch: 0});
-							this.speak({file, source, from, to: source.length, title: "", stripFrontmatter: !this.settings.speakFrontmatter});
+							this.speak({file, source, from, to: source.length, title: "", stripFrontmatter: !this.settings.speakFrontmatter, view});
 						});
 				});
 			}
@@ -523,18 +524,28 @@ export default class TTSPlugin extends Plugin {
 	}
 
 	private createHighlighter(request: SpeakRequest, text: string, from: number, spoken: string): SpeakOptions | undefined {
-		if (!this.settings.highlightSpokenWord || !request.editor) return undefined;
-		const view = (request.editor as unknown as { cm?: EditorView }).cm;
-		if (!(view instanceof EditorView)) return undefined;
+		if (!this.settings.highlightSpokenWord || !request.view) return undefined;
+		const target = this.createHighlightTarget(request.view);
+		if (!target) return undefined;
 		//the title is only added in front, so align the rest and shift it by the length of the title.
 		const body = prepareText({...this.settings, speakTitle: false}, "", text);
 		const offset = spoken.length - body.length;
 		const mappings = alignWords(body, text).map(mapping => ({...mapping, from: mapping.from + offset, to: mapping.to + offset}));
-		const highlighter = new SpokenWordHighlighter(view, mappings, from);
+		const highlighter = new SpokenWordHighlighter(target, mappings, from, spoken, this.settings.rate);
 		return {
 			onBoundary: (charIndex) => highlighter.onBoundary(charIndex),
 			onEnd: () => highlighter.clear(),
+			onPause: () => highlighter.onPause(),
+			onResume: () => highlighter.onResume(),
 		};
+	}
+
+	private createHighlightTarget(view: MarkdownFileInfo): HighlightTarget | null {
+		if (view instanceof MarkdownView) {
+			return new MarkdownViewTarget(view, this.sectionContexts);
+		}
+		const cm = (view.editor as unknown as { cm?: EditorView } | undefined)?.cm;
+		return cm instanceof EditorView ? new EditorTarget(cm) : null;
 	}
 
 	async play(info: MarkdownFileInfo): Promise<void> {
@@ -552,7 +563,7 @@ export default class TTSPlugin extends Plugin {
 				to: editor.posToOffset(editor.getCursor("to")),
 				title: "",
 				stripFrontmatter: false,
-				editor,
+				view: info,
 			});
 			return;
 		}
@@ -573,7 +584,7 @@ export default class TTSPlugin extends Plugin {
 			to: source.length,
 			title: file.basename,
 			stripFrontmatter: !this.settings.speakFrontmatter,
-			editor,
+			view: info,
 		});
 	}
 
@@ -591,7 +602,7 @@ export default class TTSPlugin extends Plugin {
 			to: source.length,
 			title: "",
 			stripFrontmatter: !this.settings.speakFrontmatter,
-			editor,
+			view: info,
 		});
 	}
 

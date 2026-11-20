@@ -21,3 +21,7 @@
 	background-color: var(--highlight-background, var(--text-highlight-bg));
 	border-radius: var(--radius-s);
 }
+
+::highlight(tts-spoken-word) {
+	background-color: var(--highlight-background, var(--text-highlight-bg));
+}

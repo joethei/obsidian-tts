@@ -69,28 +69,57 @@ export function alignWords(spoken: string, source: string): WordMapping[] {
 	return result;
 }
 
-/**
- * @returns the mapping for the word at charIndex in the spoken text, if that word could be aligned.
- */
-export function findMapping(mappings: WordMapping[], charIndex: number): WordMapping | undefined {
-	let low = 0;
-	let high = mappings.length - 1;
-	while (low <= high) {
-		const middle = (low + high) >> 1;
-		const mapping = mappings[middle];
-		if (charIndex < mapping.from) {
-			high = middle - 1;
-		} else if (charIndex >= mapping.to) {
-			low = middle + 1;
-		} else {
-			return mapping;
-		}
-	}
-	return undefined;
-}
-
 const setSpokenWord = StateEffect.define<{ from: number, to: number } | null>();
 const spokenWordMark = Decoration.mark({class: "tts-spoken-word"});
+
+/**
+ * Where the spoken word is shown, offsets are positions in the note.
+ */
+export interface HighlightTarget {
+	/**
+	 * @returns false if the word could not be shown yet, it is tried again shortly.
+	 */
+	show(from: number, to: number): boolean;
+
+	clear(): void;
+
+	/**
+	 * @returns false once the offsets no longer match the note, for example after it was edited.
+	 */
+	isValid(): boolean;
+}
+
+/**
+ * Highlights a word in source mode and live preview.
+ */
+export class EditorTarget implements HighlightTarget {
+	private readonly docLength: number;
+
+	constructor(private readonly view: EditorView) {
+		this.docLength = view.state.doc.length;
+	}
+
+	show(from: number, to: number): boolean {
+		this.dispatch([setSpokenWord.of({from, to}), EditorView.scrollIntoView(from, {y: "nearest"})]);
+		return true;
+	}
+
+	clear(): void {
+		this.dispatch([setSpokenWord.of(null)]);
+	}
+
+	isValid(): boolean {
+		return this.view.state.doc.length === this.docLength;
+	}
+
+	private dispatch(effects: StateEffect<unknown>[]): void {
+		try {
+			this.view.dispatch({effects});
+		} catch (e) {
+			//the editor was closed in the meantime.
+		}
+	}
+}
 
 export const spokenWordField = StateField.define<DecorationSet>({
 	create: () => Decoration.none,
@@ -107,50 +136,156 @@ export const spokenWordField = StateField.define<DecorationSet>({
 });
 
 /**
+ * Speaking time of a text in characters, pauses after punctuation count as extra characters.
+ * @returns for each position in the text the time needed to reach it
+ */
+function speakingTime(text: string): Float64Array {
+	const time = new Float64Array(text.length + 1);
+	for (let i = 0; i < text.length; i++) {
+		const char = text.charAt(i);
+		let weight = 1;
+		if (/[.!?]/.test(char)) weight += 8;
+		else if (/[,;:\n]/.test(char)) weight += 4;
+		time[i + 1] = time[i] + weight;
+	}
+	return time;
+}
+
+/**
  * Highlights the word that is currently spoken in an editor.
+ *
+ * Speech engines do not report every word, some voices only report a few words per sentence.
+ * Between two reports the highlight moves on with the measured speaking speed,
+ * each report puts it back to the word that is actually spoken.
  */
 export class SpokenWordHighlighter {
 	private static active: SpokenWordHighlighter | null = null;
-	private readonly docLength: number;
+	private readonly time: Float64Array;
+	/** speaking time units per millisecond, measured once enough words were reported */
+	private speed: number;
+	/** first and last reported word, in speaking time units and playing time */
+	private first: { time: number, at: number } | null = null;
+	private last: { time: number, at: number } | null = null;
+	private highlighted: WordMapping | null = null;
+	/** reported words and the index of the first one in mappings, to find out whether the voice skips words */
+	private reported = 0;
+	private firstIndex = 0;
+	private timer: number | null = null;
+	private pausedAt: number | null = null;
+	private pausedFor = 0;
 
 	/**
-	 * @param view editor the text was taken from
+	 * @param target shows the word in the note the text was taken from
 	 * @param mappings created with {@link alignWords}
-	 * @param base offset of the aligned source text in the document
+	 * @param base offset of the aligned source text in the note
+	 * @param spoken text passed to the speech engine
+	 * @param rate speech rate, used until the speed has been measured
 	 */
-	constructor(private readonly view: EditorView, private readonly mappings: WordMapping[], private readonly base: number) {
-		this.docLength = view.state.doc.length;
+	constructor(private readonly target: HighlightTarget, private readonly mappings: WordMapping[], private readonly base: number,
+				spoken: string, private readonly rate: number) {
+		this.time = speakingTime(spoken);
+		//about 18 characters per second at normal rate, measured with Samantha and Rocko on macOS.
+		this.speed = 0.018 * rate;
 	}
 
 	onBoundary(charIndex: number): void {
-		const mapping = findMapping(this.mappings, charIndex);
-		if (!mapping) return;
-		//offsets are no longer valid after the note was edited.
-		if (this.view.state.doc.length !== this.docLength) {
+		if (!this.target.isValid()) {
 			this.clear();
 			return;
 		}
+		const now = this.now();
+		const time = this.time[Math.min(charIndex, this.time.length - 1)];
+		if (!this.first || time < this.first.time) {
+			this.first = {time, at: now};
+			this.reported = 0;
+			this.firstIndex = this.findSpoken(time);
+		} else if (now - this.first.at > 3000 && time > this.first.time) {
+			//reports at the start can come in a burst, so only measure over a longer time.
+			this.speed = (time - this.first.time) / (now - this.first.at);
+		}
+		this.last = {time, at: now};
+		this.reported++;
+		this.timer ??= window.setInterval(() => this.update(), 50);
+		this.update();
+	}
+
+	onPause(): void {
+		this.pausedAt ??= performance.now();
+	}
+
+	onResume(): void {
+		if (this.pausedAt === null) return;
+		this.pausedFor += performance.now() - this.pausedAt;
+		this.pausedAt = null;
+	}
+
+	clear(): void {
+		if (this.timer !== null) {
+			window.clearInterval(this.timer);
+			this.timer = null;
+		}
+		this.first = null;
+		this.last = null;
+		this.reported = 0;
+		this.highlighted = null;
+		this.pausedAt = null;
+		if (SpokenWordHighlighter.active === this) {
+			SpokenWordHighlighter.active = null;
+		}
+		this.target.clear();
+	}
+
+	/**
+	 * @returns milliseconds spent playing, pauses are left out.
+	 */
+	private now(): number {
+		return (this.pausedAt ?? performance.now()) - this.pausedFor;
+	}
+
+	private update(): void {
+		if (!this.last) return;
+		if (!this.target.isValid()) {
+			this.clear();
+			return;
+		}
+		//voices that report every word are followed exactly, the estimate only fills in words a voice does not report.
+		//some voices stop reporting for a while, longer than a pause between paragraphs.
+		const elapsed = this.now() - this.last.at;
+		const estimate = this.skipsWords() || elapsed > 1500 / this.rate;
+		const estimated = estimate ? this.last.time + elapsed * this.speed : this.last.time;
+		const mapping = this.mappings[this.findSpoken(estimated)];
+		if (!mapping || mapping === this.highlighted) return;
 		if (SpokenWordHighlighter.active && SpokenWordHighlighter.active !== this) {
 			SpokenWordHighlighter.active.clear();
 		}
 		SpokenWordHighlighter.active = this;
-		const from = this.base + mapping.sourceFrom;
-		const to = this.base + mapping.sourceTo;
-		this.dispatch([setSpokenWord.of({from, to}), EditorView.scrollIntoView(from, {y: "nearest"})]);
+		if (this.target.show(this.base + mapping.sourceFrom, this.base + mapping.sourceTo)) {
+			this.highlighted = mapping;
+		}
 	}
 
-	clear(): void {
-		if (SpokenWordHighlighter.active === this) {
-			SpokenWordHighlighter.active = null;
-		}
-		this.dispatch([setSpokenWord.of(null)]);
+	private skipsWords(): boolean {
+		if (!this.last || this.reported < 2) return false;
+		const passed = this.findSpoken(this.last.time) - this.firstIndex + 1;
+		return this.reported < passed * 0.7;
 	}
 
-	private dispatch(effects: StateEffect<unknown>[]): void {
-		try {
-			this.view.dispatch({effects});
-		} catch (e) {
-			//the editor was closed in the meantime.
+	/**
+	 * @returns index of the last word that starts before the given speaking time, -1 if there is none.
+	 */
+	private findSpoken(time: number): number {
+		let low = 0;
+		let high = this.mappings.length - 1;
+		let result = -1;
+		while (low <= high) {
+			const middle = (low + high) >> 1;
+			if (this.time[this.mappings[middle].from] <= time) {
+				result = middle;
+				low = middle + 1;
+			} else {
+				high = middle - 1;
+			}
 		}
+		return result;
 	}
 }
