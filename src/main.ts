@@ -1,5 +1,5 @@
 import {
-	addIcon, Editor, getFrontMatterInfo, MarkdownFileInfo,
+	addIcon, Editor, EventRef, getFrontMatterInfo, getLinkpath, MarkdownFileInfo,
 	MarkdownPostProcessorContext, MarkdownView, Menu, Notice, Platform,
 	Plugin, setIcon, TAbstractFile, TFile
 } from 'obsidian';
@@ -28,6 +28,13 @@ interface SpeakRequest {
 	stripFrontmatter: boolean;
 	/** the view showing source, to highlight the spoken word */
 	view?: MarkdownFileInfo;
+}
+
+/**
+ * Not part of the public API, triggered by the core search plugin.
+ */
+interface SearchResultsMenuWorkspace {
+	on(name: 'search:results-menu', callback: (menu: Menu, view: { dom?: { getFiles?(): TAbstractFile[] } }) => void): EventRef;
 }
 
 function isMarkdownFile(file: TAbstractFile): file is TFile {
@@ -88,6 +95,30 @@ export default class TTSPlugin extends Plugin {
 				if (!checking)
 					this.readFromCursor(editor, info);
 				return !!info.file;
+			}
+		});
+
+		this.addCommand({
+			id: 'add-note-to-tts-queue',
+			name: 'Add note to playback queue',
+			icon: 'list-plus',
+			checkCallback: (checking: boolean) => {
+				const info = this.app.workspace.activeEditor;
+				if (!checking)
+					this.play(info);
+				return !!info?.file;
+			}
+		});
+
+		this.addCommand({
+			id: 'add-linked-notes-to-tts-queue',
+			name: 'Add linked notes to playback queue',
+			icon: 'links-going-out',
+			checkCallback: (checking: boolean) => {
+				const file = this.app.workspace.getActiveFile();
+				if (!checking)
+					this.readLinkedNotes(file);
+				return !!file;
 			}
 		});
 
@@ -188,6 +219,37 @@ export default class TTSPlugin extends Plugin {
 				});
 			}
 		})));
+		this.registerEvent(this.app.workspace.on('files-menu', ((menu, files) => {
+			const notes = files.filter(isMarkdownFile);
+			if (notes.length === 0) return;
+			menu.addItem((item) => {
+				item
+					.setTitle("Read the notes")
+					.setIcon("audio-file")
+					.onClick(async () => {
+						await this.readFiles(notes);
+					});
+			});
+		})));
+		const workspace = this.app.workspace as unknown as SearchResultsMenuWorkspace;
+		this.registerEvent(workspace.on('search:results-menu', (menu, view) => {
+			const getFiles = view?.dom?.getFiles;
+			if (typeof getFiles !== "function") return;
+			menu.addItem((item) => {
+				item
+					.setSection("action")
+					.setTitle("Read search results")
+					.setIcon("audio-file")
+					.onClick(async () => {
+						const notes = getFiles.call(view.dom).filter(isMarkdownFile);
+						if (notes.length === 0) {
+							new Notice("TTS: the search has no notes to read");
+							return;
+						}
+						await this.readFiles(notes);
+					});
+			});
+		}));
 
 		this.registerMarkdownPostProcessor((element, context) => {
 			this.sectionContexts.set(element, context);
@@ -609,6 +671,33 @@ export default class TTSPlugin extends Plugin {
 	async readFile(file: TFile): Promise<void> {
 		const source = await this.app.vault.cachedRead(file);
 		await this.speak({file, source, from: 0, to: source.length, title: file.basename, stripFrontmatter: !this.settings.speakFrontmatter});
+	}
+
+	/**
+	 * Read notes one after another, they are added to the playback queue.
+	 */
+	async readFiles(files: TFile[]): Promise<void> {
+		new Notice(`TTS: reading ${files.length} ${files.length === 1 ? "note" : "notes"}`);
+		for (const file of files) {
+			await this.readFile(file);
+		}
+	}
+
+	async readLinkedNotes(file: TFile | null): Promise<void> {
+		if (!file) return;
+		const links = this.app.metadataCache.getFileCache(file)?.links ?? [];
+		const notes: TFile[] = [];
+		for (const link of links) {
+			const target = this.app.metadataCache.getFirstLinkpathDest(getLinkpath(link.link), file.path);
+			if (target && isMarkdownFile(target) && target !== file && !notes.includes(target)) {
+				notes.push(target);
+			}
+		}
+		if (notes.length === 0) {
+			new Notice("TTS: this note does not link to other notes");
+			return;
+		}
+		await this.readFiles(notes);
 	}
 
 	getLanguageFromFrontmatter(file: TFile): string | undefined {
