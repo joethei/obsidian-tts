@@ -3,12 +3,15 @@ import {
 	MarkdownPostProcessorContext, MarkdownView, Menu, Notice, Platform,
 	Plugin, setIcon, TAbstractFile, TFile
 } from 'obsidian';
+import {EditorView} from "@codemirror/view";
 import {DEFAULT_SETTINGS, LanguageVoiceMap, TTSSettings, TTSSettingsTab} from "./settings";
 import {registerAPI} from "@vanakat/plugin-api";
 import {detect} from "tinyld";
 import {ServiceManager} from "./ServiceManager";
 import {prepareText} from "./textPreparation";
-import {TTSService} from "./services/TTSService";
+import {SpeakOptions, TTSService} from "./services/TTSService";
+import {alignWords, EditorTarget, HighlightTarget, spokenWordField, SpokenWordHighlighter} from "./highlight";
+import {MarkdownViewTarget} from "./readingViewHighlight";
 
 /**
  * A part of a note that should be read.
@@ -23,6 +26,8 @@ interface SpeakRequest {
 	/** spoken first if the user enabled it, empty to skip */
 	title: string;
 	stripFrontmatter: boolean;
+	/** the view showing source, to highlight the spoken word */
+	view?: MarkdownFileInfo;
 }
 
 function isMarkdownFile(file: TAbstractFile): file is TFile {
@@ -144,6 +149,8 @@ export default class TTSPlugin extends Plugin {
 
 		//keep the playback controls in sync, speech engines do not report every state change.
 		this.registerInterval(window.setInterval(() => this.updateStatusbar(), 500));
+
+		this.registerEditorExtension(spokenWordField);
 
 		this.addRibbonIcon("audio-file", "Text to Speech", async (event) => {
 			await this.createMenu(event);
@@ -365,7 +372,7 @@ export default class TTSPlugin extends Plugin {
 						.onClick(() => {
 							const source = view.editor.getValue();
 							const from = view.editor.posToOffset({line, ch: 0});
-							this.speak({file, source, from, to: source.length, title: "", stripFrontmatter: !this.settings.speakFrontmatter});
+							this.speak({file, source, from, to: source.length, title: "", stripFrontmatter: !this.settings.speakFrontmatter, view});
 						});
 				});
 			}
@@ -478,13 +485,13 @@ export default class TTSPlugin extends Plugin {
 	/**
 	 * @param explicitLanguage false if the language was detected, so a missing voice for it is not reported.
 	 */
-	async say(text: string, languageCode?: string, explicitLanguage = true): Promise<void> {
+	async say(text: string, languageCode?: string, explicitLanguage = true, options?: SpeakOptions): Promise<void> {
 		const resolved = this.resolveVoice(languageCode, explicitLanguage);
 		if (!resolved) {
-			await this.serviceManager.sayWithVoice(text, this.settings.defaultVoice);
+			await this.serviceManager.sayWithVoice(text, this.settings.defaultVoice, options);
 			return;
 		}
-		await resolved.service.sayWithVoice(text, resolved.voice);
+		await resolved.service.sayWithVoice(text, resolved.voice, options);
 	}
 
 	prepareText(title: string, text: string): string {
@@ -513,7 +520,32 @@ export default class TTSPlugin extends Plugin {
 		//a missing voice is only reported for languages the user set, not for detected ones.
 		const frontmatterLanguage = request.file ? this.getLanguageFromFrontmatter(request.file) : undefined;
 		const language = frontmatterLanguage || this.detectLanguage(text);
-		await this.say(spoken, language, !!frontmatterLanguage);
+		await this.say(spoken, language, !!frontmatterLanguage, this.createHighlighter(request, text, from, spoken));
+	}
+
+	private createHighlighter(request: SpeakRequest, text: string, from: number, spoken: string): SpeakOptions | undefined {
+		if (!this.settings.highlightSpokenWord || !request.view) return undefined;
+		const target = this.createHighlightTarget(request.view);
+		if (!target) return undefined;
+		//the title is only added in front, so align the rest and shift it by the length of the title.
+		const body = prepareText({...this.settings, speakTitle: false}, "", text);
+		const offset = spoken.length - body.length;
+		const mappings = alignWords(body, text).map(mapping => ({...mapping, from: mapping.from + offset, to: mapping.to + offset}));
+		const highlighter = new SpokenWordHighlighter(target, mappings, from, spoken, this.settings.rate);
+		return {
+			onBoundary: (charIndex) => highlighter.onBoundary(charIndex),
+			onEnd: () => highlighter.clear(),
+			onPause: () => highlighter.onPause(),
+			onResume: () => highlighter.onResume(),
+		};
+	}
+
+	private createHighlightTarget(view: MarkdownFileInfo): HighlightTarget | null {
+		if (view instanceof MarkdownView) {
+			return new MarkdownViewTarget(view, this.sectionContexts);
+		}
+		const cm = (view.editor as unknown as { cm?: EditorView } | undefined)?.cm;
+		return cm instanceof EditorView ? new EditorTarget(cm) : null;
 	}
 
 	async play(info: MarkdownFileInfo): Promise<void> {
@@ -531,6 +563,7 @@ export default class TTSPlugin extends Plugin {
 				to: editor.posToOffset(editor.getCursor("to")),
 				title: "",
 				stripFrontmatter: false,
+				view: info,
 			});
 			return;
 		}
@@ -551,6 +584,7 @@ export default class TTSPlugin extends Plugin {
 			to: source.length,
 			title: file.basename,
 			stripFrontmatter: !this.settings.speakFrontmatter,
+			view: info,
 		});
 	}
 
@@ -568,6 +602,7 @@ export default class TTSPlugin extends Plugin {
 			to: source.length,
 			title: "",
 			stripFrontmatter: !this.settings.speakFrontmatter,
+			view: info,
 		});
 	}
 

@@ -12,6 +12,8 @@ Features:
   ![Selection Demo](https://i.joethei.space/Obsidian_rjttPsYPwj.png)
 - Start reading at the cursor with the `Read from cursor` command, or `Read from here` in the context menu.
   In reading view, right click a paragraph to read from there, or right click selected text to read it.
+- The word that is spoken is highlighted in the editor
+  (some voices report words more often than others, so the highlight may jump a few words at a time).
 - usable with other plugins (currently [RSS Reader](https://github.com/joethei/obsidian-rss))
 
 You can create language specific voices,
