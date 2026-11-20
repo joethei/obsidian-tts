@@ -14,6 +14,9 @@ Features:
   In reading view, right click a paragraph to read from there, or right click selected text to read it.
 - The word that is spoken is highlighted in the editor
   (some voices report words more often than others, so the highlight may jump a few words at a time).
+- Playback queue: when something is already playing, new notes are queued.
+  You can queue the current note, all notes linked from it, several notes selected in the file explorer,
+  or the results of a search (from the `…` menu in the search pane).
 - usable with other plugins (currently [RSS Reader](https://github.com/joethei/obsidian-rss))
 
 You can create language specific voices,
