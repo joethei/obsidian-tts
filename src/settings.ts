@@ -1,4 +1,4 @@
-import {ButtonComponent, PluginSettingTab, Setting, SettingGroup} from "obsidian";
+import {ButtonComponent, Notice, PluginSettingTab, Setting, SettingGroup} from "obsidian";
 import {TextInputPrompt} from "./TextInputPrompt";
 import TTSPlugin from "./main";
 import {LanguageVoiceModal} from "./LanguageVoiceModal";
@@ -21,6 +21,7 @@ export interface TTSSettings {
     speakTitle: boolean;
 	speakEmoji: boolean;
 	speakComments: boolean;
+	ignoredPatterns: string[];
     languageVoices: LanguageVoiceMap[];
 	stopPlaybackWhenNoteChanges: boolean;
 	services: {
@@ -42,6 +43,7 @@ export const DEFAULT_SETTINGS: TTSSettings = {
 	speakCodeblocks: false,
 	speakEmoji: false,
 	speakComments: false,
+	ignoredPatterns: [],
     languageVoices: [],
 	stopPlaybackWhenNoteChanges: false,
 	services: {
@@ -360,6 +362,54 @@ export class TTSSettingsTab extends PluginSettingTab {
 							});
 					});
 			});
+
+		const ignoredGroup = new SettingGroup(containerEl)
+			.setHeading('Ignored text')
+			.addSetting(setting =>
+				setting
+					.setName('Add pattern')
+					.setDesc('Text matching a regular expression is not spoken, e.g. \\[\\d+\\] for citations like [12].')
+					.addButton((button: ButtonComponent): ButtonComponent => {
+						return button
+							.setTooltip("Add pattern")
+							.setIcon("plus")
+							.onClick(() => {
+								const prompt = new TextInputPrompt(this.app, "Ignore text matching", "A JavaScript regular expression. ^ and $ match the start and end of each line.", "", "\\[\\d+\\]", "Add");
+								prompt.openAndGetValue(async (value) => {
+									const pattern = value.getValue();
+									if (pattern.length === 0) return;
+									try {
+										new RegExp(pattern);
+									} catch (e) {
+										new Notice("TTS: invalid regular expression: " + (e as Error).message);
+										return;
+									}
+									if (!this.plugin.settings.ignoredPatterns.includes(pattern)) {
+										this.plugin.settings.ignoredPatterns = [...this.plugin.settings.ignoredPatterns, pattern];
+										await this.plugin.saveSettings();
+									}
+									prompt.close();
+									this.display();
+								});
+							});
+					})
+			);
+
+		for (const pattern of this.plugin.settings.ignoredPatterns) {
+			ignoredGroup.addSetting(setting => {
+				setting
+					.setName(pattern)
+					.addExtraButton((b) => {
+						b.setIcon("trash")
+							.setTooltip("Delete")
+							.onClick(async () => {
+								this.plugin.settings.ignoredPatterns = this.plugin.settings.ignoredPatterns.filter(value => value !== pattern);
+								await this.plugin.saveSettings();
+								this.display();
+							});
+					});
+			});
+		}
 
 		new SettingGroup(containerEl)
 			.setHeading('Misc')
