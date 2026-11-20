@@ -1,0 +1,18 @@
+.tts-controls {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+}
+
+.tts-control {
+	display: flex;
+	cursor: var(--cursor);
+}
+
+.tts-control:hover {
+	color: var(--text-normal);
+}
+
+.tts-seekbar {
+	width: 100px;
+}

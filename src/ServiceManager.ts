@@ -49,6 +49,19 @@ export class ServiceManager {
 		}
 	}
 
+	getProgress(): number | undefined {
+		const service = this.services.find(service => service.isSpeaking() && service.getProgress);
+		return service?.getProgress();
+	}
+
+	seek(percent: number): void {
+		for (const service of this.services) {
+			if (service.isSpeaking() && service.seek) {
+				service.seek(percent);
+			}
+		}
+	}
+
 	async sayWithVoice(text: string, voice: string): Promise<void> {
 		const service = this.services.filter(service => voice.startsWith(service.id)).first();
 		const split = voice.split("-");
