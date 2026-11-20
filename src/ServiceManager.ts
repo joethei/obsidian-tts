@@ -3,7 +3,30 @@ import TTSPlugin from "./main";
 import {SpeechSynthesis} from "./services/SpeechSynthesis";
 import {Notice} from "obsidian";
 
-export class ServiceManager {
+/**
+ * The API other plugins get through `pluginApi('tts')`.
+ */
+export interface TTSApi {
+	/**
+	 * Speak a text. Markdown is cleaned up according to the user's settings,
+	 * the text is queued if something is already playing.
+	 * @param title spoken before the text, if the user enabled that. Pass an empty string to skip it.
+	 * @param languageCode ISO 639-1 code, e.g. "en". Detected from the text if left out.
+	 */
+	say(title: string, text: string, languageCode?: string): Promise<void>;
+
+	stop(): void;
+
+	pause(): void;
+
+	resume(): void;
+
+	isSpeaking(): boolean;
+
+	isPaused(): boolean;
+}
+
+export class ServiceManager implements TTSApi {
 	private readonly plugin: TTSPlugin;
 	private services: TTSService[] = [];
 
@@ -23,6 +46,10 @@ export class ServiceManager {
 
 	public isPaused(): boolean {
 		return this.services.every(service => service.isPaused());
+	}
+
+	async say(title: string, text: string, languageCode?: string): Promise<void> {
+		await this.plugin.say(this.plugin.prepareText(title, text), languageCode || this.plugin.detectLanguage(text), !!languageCode);
 	}
 
 	stop() : void {
