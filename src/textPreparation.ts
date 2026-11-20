@@ -1,7 +1,7 @@
 import {TTSSettings} from "./settings";
 
 export type TextPreparationSettings = Pick<TTSSettings,
-	"speakSyntax" | "speakLinks" | "speakCodeblocks" | "speakComments" | "speakEmoji" | "speakTitle">;
+	"speakSyntax" | "speakLinks" | "speakCodeblocks" | "speakComments" | "speakEmoji" | "speakTitle" | "ignoredPatterns">;
 
 /**
  * Turn markdown into text that can be handed to a speech engine.
@@ -9,6 +9,15 @@ export type TextPreparationSettings = Pick<TTSSettings,
  */
 export function prepareText(settings: TextPreparationSettings, title: string, text: string): string {
 	let content = text;
+
+	//user defined patterns run on the raw markdown, so they match what the user sees in the note.
+	for (const pattern of settings.ignoredPatterns ?? []) {
+		try {
+			content = content.replace(new RegExp(pattern, "gm"), "");
+		} catch (e) {
+			console.warn("TTS: ignoring invalid pattern " + pattern, e);
+		}
+	}
 
 	//embedded files (images, audio, pdf, ...) only add their file name, which is noise when spoken.
 	content = content.replace(/!\[\[([^\]|#]*)(?:[#|][^\]]*)?]]/g, (match, target: string) => {
