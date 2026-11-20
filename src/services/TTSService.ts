@@ -4,6 +4,22 @@ export interface Voice {
 	languages: string[];
 }
 
+/**
+ * Callbacks for a single text, used to highlight the spoken word.
+ */
+export interface SpeakOptions {
+	/**
+	 * Called when the speech engine starts a new word.
+	 * @param charIndex position of the word in the text passed to sayWithVoice
+	 */
+	onBoundary?(charIndex: number): void;
+
+	/**
+	 * Called when the text has been spoken, was stopped or failed.
+	 */
+	onEnd?(): void;
+}
+
 export interface TTSService {
 
 	id: string;
@@ -58,8 +74,9 @@ export interface TTSService {
 	 * This may not be used, depending on user settings
 	 * @param text Some text will be removed according to user settings, before playback starts.
 	 * @param voice if there is no voice configured with this name the default voice, according to user settings, will be used.
+	 * @param options not every service reports word boundaries.
 	 */
-	sayWithVoice(text: string, voice: string): Promise<void>;
+	sayWithVoice(text: string, voice: string, options?: SpeakOptions): Promise<void>;
 
 
 }

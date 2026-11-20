@@ -1,13 +1,13 @@
 import {Platform} from "obsidian";
 import TTSPlugin from "../main";
-import {TTSService} from "./TTSService";
+import {SpeakOptions, TTSService} from "./TTSService";
 
 export class SpeechSynthesis implements TTSService {
 	plugin: TTSPlugin;
 	id = 'speechSynthesis';
 	name = 'Speech Synthesis';
 
-	private current: {utterance: SpeechSynthesisUtterance, text: string, position: number} | null = null;
+	private current: {utterance: SpeechSynthesisUtterance, text: string, position: number, options: SpeakOptions} | null = null;
 	//keep references until playback ends, otherwise Chromium may garbage collect them and never fire their events.
 	private utterances = new Set<SpeechSynthesisUtterance>();
 
@@ -72,7 +72,7 @@ export class SpeechSynthesis implements TTSService {
 		});
 	}
 
-	private speak(text: string, voice: SpeechSynthesisVoice | null, offset = 0): SpeechSynthesisUtterance {
+	private speak(text: string, voice: SpeechSynthesisVoice | null, options: SpeakOptions, offset = 0): SpeechSynthesisUtterance {
 		const msg = new SpeechSynthesisUtterance();
 		msg.text = text.substring(offset);
 		msg.volume = this.plugin.settings.volume;
@@ -80,12 +80,15 @@ export class SpeechSynthesis implements TTSService {
 		msg.pitch = this.plugin.settings.pitch;
 		msg.voice = voice;
 		msg.onstart = () => {
-			this.current = {utterance: msg, text, position: offset};
+			this.current = {utterance: msg, text, position: offset, options};
 			this.plugin.updateStatusbar();
 		};
 		msg.onboundary = (event) => {
 			if (this.current?.utterance === msg) {
 				this.current.position = offset + event.charIndex;
+			}
+			if (event.name === "word") {
+				options.onBoundary?.(offset + event.charIndex);
 			}
 		};
 		const finished = () => {
@@ -93,6 +96,7 @@ export class SpeechSynthesis implements TTSService {
 			if (this.current?.utterance === msg) {
 				this.current = null;
 			}
+			options.onEnd?.();
 			this.plugin.updateStatusbar();
 		};
 		msg.onend = finished;
@@ -113,22 +117,22 @@ export class SpeechSynthesis implements TTSService {
 	 */
 	seek(percent: number): void {
 		if (!this.current) return;
-		const {text, utterance} = this.current;
+		const {text, utterance, options} = this.current;
 		let index = Math.floor(text.length * Math.min(Math.max(percent, 0), 100) / 100);
 		while (index > 0 && !/\s/.test(text.charAt(index - 1))) {
 			index--;
 		}
 		window.speechSynthesis.cancel();
-		const msg = this.speak(text, utterance.voice, index);
+		const msg = this.speak(text, utterance.voice, options, index);
 		//set it right away so the cancelled utterance finishing does not hide the controls.
-		this.current = {utterance: msg, text, position: index};
+		this.current = {utterance: msg, text, position: index, options};
 		if (window.speechSynthesis.paused) {
 			window.speechSynthesis.resume();
 		}
 	}
 
-	async sayWithVoice(text: string, voice: string): Promise<void> {
-		this.speak(text, window.speechSynthesis.getVoices().filter(otherVoice => otherVoice.name === voice)[0] ?? null);
+	async sayWithVoice(text: string, voice: string, options: SpeakOptions = {}): Promise<void> {
+		this.speak(text, window.speechSynthesis.getVoices().filter(otherVoice => otherVoice.name === voice)[0] ?? null, options);
 	}
 
 }

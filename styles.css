@@ -16,3 +16,8 @@
 .tts-seekbar {
 	width: 100px;
 }
+
+.tts-spoken-word {
+	background-color: var(--text-highlight-bg);
+	border-radius: var(--radius-s);
+}

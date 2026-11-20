@@ -23,6 +23,7 @@ export interface TTSSettings {
 	speakComments: boolean;
     languageVoices: LanguageVoiceMap[];
 	stopPlaybackWhenNoteChanges: boolean;
+	highlightSpokenWord: boolean;
 	readingViewMenu: boolean;
 	services: {
 		openai: {
@@ -45,6 +46,7 @@ export const DEFAULT_SETTINGS: TTSSettings = {
 	speakComments: false,
     languageVoices: [],
 	stopPlaybackWhenNoteChanges: false,
+	highlightSpokenWord: true,
 	readingViewMenu: true,
 	services: {
 		openai: {
@@ -373,6 +375,19 @@ export class TTSSettingsTab extends PluginSettingTab {
 							.setValue(this.plugin.settings.stopPlaybackWhenNoteChanges)
 							.onChange(async (value) => {
 								this.plugin.settings.stopPlaybackWhenNoteChanges = value;
+								await this.plugin.saveSettings();
+							});
+					});
+			})
+			.addSetting(setting => {
+				setting
+					.setName("Highlight the spoken word")
+					.setDesc("In the editor, while the note is being read")
+					.addToggle(async (toggle) => {
+						toggle
+							.setValue(this.plugin.settings.highlightSpokenWord)
+							.onChange(async (value) => {
+								this.plugin.settings.highlightSpokenWord = value;
 								await this.plugin.saveSettings();
 							});
 					});

@@ -1,4 +1,4 @@
-import {TTSService} from "./services/TTSService";
+import {SpeakOptions, TTSService} from "./services/TTSService";
 import TTSPlugin from "./main";
 import {SpeechSynthesis} from "./services/SpeechSynthesis";
 import {Notice} from "obsidian";
@@ -62,7 +62,7 @@ export class ServiceManager {
 		}
 	}
 
-	async sayWithVoice(text: string, voice: string): Promise<void> {
+	async sayWithVoice(text: string, voice: string, options?: SpeakOptions): Promise<void> {
 		const service = this.services.filter(service => voice.startsWith(service.id)).first();
 		const split = voice.split("-");
 		split.shift();
@@ -71,7 +71,7 @@ export class ServiceManager {
 			new Notice("TTS: no service found for voice " + voice);
 			return;
 		}
-		await service.sayWithVoice(text, voice);
+		await service.sayWithVoice(text, voice, options);
 
 	}
 
