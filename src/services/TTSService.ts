@@ -41,6 +41,19 @@ export interface TTSService {
 	getVoices() : Promise<Voice[]>;
 
 	/**
+	 * @public
+	 * @returns how much of the current text has been spoken, in percent. undefined if nothing is playing or the service cannot tell.
+	 */
+	getProgress?(): number | undefined;
+
+	/**
+	 * @public
+	 * Continue the current text at the given position.
+	 * @param percent position in the current text, 0-100
+	 */
+	seek?(percent: number): void;
+
+	/**
 	 * @internal
 	 * This may not be used, depending on user settings
 	 * @param text Some text will be removed according to user settings, before playback starts.

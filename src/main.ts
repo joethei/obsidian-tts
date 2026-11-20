@@ -13,6 +13,11 @@ import {prepareText} from "./textPreparation";
 export default class TTSPlugin extends Plugin {
 	settings: TTSSettings;
 	statusbar: HTMLElement;
+	private controls: HTMLElement;
+	private playPauseButton: HTMLElement;
+	private seekbar: HTMLInputElement;
+	//true while the user drags the seekbar, so the periodic update does not move it back.
+	private seeking = false;
 
 	serviceManager: ServiceManager;
 
@@ -113,13 +118,8 @@ export default class TTSPlugin extends Plugin {
 			}
 		})*/
 
-		//clear statusbar text if not speaking
-		this.registerInterval(window.setInterval(() => {
-			if (!this.serviceManager.isSpeaking()) {
-				this.statusbar.empty();
-				setIcon(this.statusbar, 'audio-file');
-			}
-		}, 1000 * 10));
+		//keep the playback controls in sync, speech engines do not report every state change.
+		this.registerInterval(window.setInterval(() => this.updateStatusbar(), 500));
 
 		this.addRibbonIcon("audio-file", "Text to Speech", async (event) => {
 			await this.createMenu(event);
@@ -166,7 +166,66 @@ export default class TTSPlugin extends Plugin {
 			await this.createMenu(event);
 		});
 
+		this.createControls();
+
 		registerAPI("tts", this.serviceManager, this);
+	}
+
+	private createControls(): void {
+		this.controls = this.addStatusBarItem();
+		this.controls.addClass("tts-controls");
+
+		this.playPauseButton = this.controls.createSpan({cls: "tts-control"});
+		this.playPauseButton.onClickEvent(() => {
+			if (this.serviceManager.isPaused()) {
+				this.serviceManager.resume();
+			} else {
+				this.serviceManager.pause();
+			}
+			this.updateStatusbar();
+		});
+
+		this.seekbar = this.controls.createEl("input", {
+			type: "range",
+			cls: "tts-seekbar",
+			attr: {min: "0", max: "100", step: "1", value: "0", "aria-label": "Playback position"}
+		});
+		this.seekbar.addEventListener("input", () => {
+			this.seeking = true;
+		});
+		this.seekbar.addEventListener("change", () => {
+			this.seeking = false;
+			this.serviceManager.seek(parseFloat(this.seekbar.value));
+		});
+
+		const stopButton = this.controls.createSpan({cls: "tts-control", attr: {"aria-label": "Stop"}});
+		setIcon(stopButton, "square");
+		stopButton.onClickEvent(() => {
+			this.serviceManager.stop();
+			this.updateStatusbar();
+		});
+
+		this.controls.hide();
+	}
+
+	updateStatusbar(): void {
+		if (!this.controls) return;
+		const speaking = this.serviceManager.isSpeaking();
+		this.controls.toggle(speaking);
+		if (!speaking) return;
+
+		const icon = this.serviceManager.isPaused() ? "play" : "pause";
+		if (this.playPauseButton.dataset.icon !== icon) {
+			setIcon(this.playPauseButton, icon);
+			this.playPauseButton.dataset.icon = icon;
+			this.playPauseButton.setAttr("aria-label", icon === "play" ? "Resume" : "Pause");
+		}
+
+		const progress = this.serviceManager.getProgress();
+		this.seekbar.toggle(progress !== undefined);
+		if (progress !== undefined && !this.seeking) {
+			this.seekbar.value = progress.toString();
+		}
 	}
 
 	async createMenu(event: MouseEvent): Promise<void> {
